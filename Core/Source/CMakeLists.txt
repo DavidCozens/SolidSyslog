@@ -28,6 +28,7 @@ set(SOURCES
     SolidSyslogNullBlockDevice.c
     SolidSyslogNullSecurityPolicy.c
     SolidSyslogCrc16.c
+    SolidSyslogTlsFingerprint.c
     SolidSyslogCrc16Policy.c
     SolidSyslogStream.c
     SolidSyslogNullStream.c
