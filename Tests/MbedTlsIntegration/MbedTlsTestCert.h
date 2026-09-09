@@ -46,6 +46,12 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     size_t MbedTlsTestCert_WriteCertPem(const struct MbedTlsTestCert* cert, unsigned char* buffer, size_t capacity);
     size_t MbedTlsTestCert_WriteKeyPem(const struct MbedTlsTestCert* cert, unsigned char* buffer, size_t capacity);
 
+    /* Write the certificate's fingerprint in the RFC 5425 4.2.2 form -
+       "<label>:XX:XX:...", where `label` is "sha-1" or "sha-256" and names
+       both the IANA hash and the digest to take. */
+    void
+    MbedTlsTestCert_WriteFingerprint(const struct MbedTlsTestCert* cert, const char* label, char* out, size_t capacity);
+
     void MbedTlsTestCert_Destroy(struct MbedTlsTestCert * cert);
 
 SOLIDSYSLOG_EXTERN_C_END

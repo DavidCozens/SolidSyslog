@@ -57,6 +57,13 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED
     };
 
+    /** Whether @p count pins are actually there to be read: a count with no
+     *  list behind it, or a NULL pin within one, is not. Credentials backends
+     *  call this on the configuration they were given, so an integrator is
+     *  told at Create rather than faulting on the first connection. An empty
+     *  list is present. */
+    bool SolidSyslogTlsFingerprint_ListIsPresent(const char* const * fingerprints, size_t count);
+
     /** Inspects @p count pins before a handshake, so a stream can refuse a
      *  malformed list and warn of a SHA-1 pin once per connection. An empty
      *  list is well formed, as is a NULL one with a count of zero; a count

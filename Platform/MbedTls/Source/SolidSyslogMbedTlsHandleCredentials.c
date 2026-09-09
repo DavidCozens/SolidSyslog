@@ -71,8 +71,8 @@ static bool MbedTlsHandleCredentials_Install(
 {
     struct SolidSyslogMbedTlsHandleCredentials* self = MbedTlsHandleCredentials_SelfFromBase(base);
     installed->TrustAnchorsInstalled = self->Config.CaChain != NULL;
-    installed->Fingerprints = NULL;
-    installed->FingerprintCount = 0U;
+    installed->Fingerprints = self->Config.PeerFingerprints;
+    installed->FingerprintCount = self->Config.PeerFingerprintCount;
     if (installed->TrustAnchorsInstalled)
     {
         mbedtls_ssl_conf_ca_chain(conf, self->Config.CaChain, NULL);

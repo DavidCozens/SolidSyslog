@@ -58,6 +58,21 @@ static uint8_t lastMdHmacInput[MBEDTLSFAKE_MAX_INPUT];
 static size_t lastMdHmacInputLen;
 static int mdHmacReturn;
 
+/* mbedtls_ssl_conf_verify / mbedtls_md over a certificate */
+enum
+{
+    MBEDTLSFAKE_MAX_DER = 512,
+    MBEDTLSFAKE_MAX_DIGEST = 64
+};
+
+static int (*lastSslConfVerifyCallback)(void*, mbedtls_x509_crt*, int, uint32_t*);
+static void* lastSslConfVerifyContext;
+static mbedtls_x509_crt fakeCertificate;
+static unsigned char fakeCertificateDer[MBEDTLSFAKE_MAX_DER];
+static unsigned char fakeDigest[MBEDTLSFAKE_MAX_DIGEST];
+static size_t fakeDigestLength;
+static int digestUnavailableMdType = -1;
+
 /* mbedtls_platform_zeroize */
 static int platformZeroizeCallCount;
 static const void* lastPlatformZeroizeBuf;
@@ -183,6 +198,13 @@ static int pkCheckPairReturn;
 
 void MbedTlsFake_Reset(void)
 {
+    lastSslConfVerifyCallback = NULL;
+    lastSslConfVerifyContext = NULL;
+    fakeCertificate.raw.p = NULL;
+    fakeCertificate.raw.len = 0;
+    fakeDigestLength = 0;
+    digestUnavailableMdType = -1;
+    lastMdInfoType = 0;
     sslConfigInitCallCount = 0;
     lastSslConfigInitArg = NULL;
     sslConfigDefaultsCallCount = 0;
@@ -896,7 +918,71 @@ const mbedtls_md_info_t* mbedtls_md_info_from_type(mbedtls_md_type_t md_type)
 {
     static const int mdInfoSentinel = 0;
     lastMdInfoType = (int) md_type;
-    return (const mbedtls_md_info_t*) &mdInfoSentinel;
+    return ((int) md_type == digestUnavailableMdType) ? NULL : (const mbedtls_md_info_t*) &mdInfoSentinel;
+}
+
+int mbedtls_md(const mbedtls_md_info_t* md_info, const unsigned char* input, size_t ilen, unsigned char* output)
+{
+    (void) md_info;
+    (void) input;
+    (void) ilen;
+    memcpy(output, fakeDigest, fakeDigestLength);
+    return 0;
+}
+
+unsigned char mbedtls_md_get_size(const mbedtls_md_info_t* md_info)
+{
+    (void) md_info;
+    return (unsigned char) fakeDigestLength;
+}
+
+void mbedtls_ssl_conf_verify(
+    mbedtls_ssl_config* conf,
+    int (*f_vrfy)(void*, mbedtls_x509_crt*, int, uint32_t*),
+    void* p_vrfy
+)
+{
+    (void) conf;
+    lastSslConfVerifyCallback = f_vrfy;
+    lastSslConfVerifyContext = p_vrfy;
+}
+
+int (*MbedTlsFake_LastSslConfVerifyCallback(void))(void*, mbedtls_x509_crt*, int, uint32_t*)
+{
+    return lastSslConfVerifyCallback;
+}
+
+void* MbedTlsFake_LastSslConfVerifyContext(void)
+{
+    return lastSslConfVerifyContext;
+}
+
+mbedtls_x509_crt* MbedTlsFake_Certificate(void)
+{
+    return &fakeCertificate;
+}
+
+void MbedTlsFake_SetCertificateDer(const unsigned char* der, size_t length)
+{
+    memcpy(fakeCertificateDer, der, length);
+    fakeCertificate.raw.p = fakeCertificateDer;
+    fakeCertificate.raw.len = length;
+}
+
+void MbedTlsFake_SetDigest(const unsigned char* digest, size_t length)
+{
+    memcpy(fakeDigest, digest, length);
+    fakeDigestLength = length;
+}
+
+void MbedTlsFake_SetDigestUnavailableFor(int mdType)
+{
+    digestUnavailableMdType = mdType;
+}
+
+int MbedTlsFake_LastDigestMdType(void)
+{
+    return lastMdInfoType;
 }
 
 int mbedtls_md_hmac(

@@ -155,6 +155,18 @@ static inline bool TlsFingerprint_ParseHexDigit(char digit, uint8_t* value)
     return parsed;
 }
 
+bool SolidSyslogTlsFingerprint_ListIsPresent(const char* const * fingerprints, size_t count)
+{
+    bool present = TlsFingerprint_ListIsReadable(fingerprints, count);
+
+    for (size_t i = 0; present && (i < count); i++)
+    {
+        present = fingerprints[i] != NULL;
+    }
+
+    return present;
+}
+
 enum SolidSyslogTlsFingerprintListState SolidSyslogTlsFingerprint_InspectList(
     const char* const * fingerprints,
     size_t count

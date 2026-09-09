@@ -13,6 +13,7 @@
 #include "SolidSyslogOpenSslNullCredentials.h"
 #include "SolidSyslogOpenSslPemFileCredentialsPrivate.h"
 #include "SolidSyslogPoolAllocator.h"
+#include "SolidSyslogTlsFingerprint.h"
 #include "SolidSyslogPrival.h"
 #include "SolidSyslogTunables.h"
 
@@ -27,10 +28,6 @@ static struct SolidSyslogPoolAllocator OpenSslPemFileCredentials_Allocator = {
     SOLIDSYSLOG_TLS_CREDENTIALS_POOL_SIZE
 };
 
-static inline bool OpenSslPemFileCredentials_PeerFingerprintsArePresent(
-    const struct SolidSyslogOpenSslPemFileCredentialsConfig* config
-);
-
 struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Create(
     const struct SolidSyslogOpenSslPemFileCredentialsConfig* config
 )
@@ -44,7 +41,7 @@ struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Creat
             SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_NULL_CONFIG
         );
     }
-    else if (!OpenSslPemFileCredentials_PeerFingerprintsArePresent(config))
+    else if (!SolidSyslogTlsFingerprint_ListIsPresent(config->PeerFingerprints, config->PeerFingerprintCount))
     {
         OpenSslPemFileCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
@@ -70,22 +67,6 @@ struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Creat
         }
     }
     return handle;
-}
-
-/* A count with no list behind it, or a hole in one, would be dereferenced on
- * the first connection. */
-static inline bool OpenSslPemFileCredentials_PeerFingerprintsArePresent(
-    const struct SolidSyslogOpenSslPemFileCredentialsConfig* config
-)
-{
-    bool present = (config->PeerFingerprintCount == 0U) || (config->PeerFingerprints != NULL);
-
-    for (size_t i = 0; present && (i < config->PeerFingerprintCount); i++)
-    {
-        present = config->PeerFingerprints[i] != NULL;
-    }
-
-    return present;
 }
 
 void SolidSyslogOpenSslPemFileCredentials_Destroy(struct SolidSyslogOpenSslCredentials* base)

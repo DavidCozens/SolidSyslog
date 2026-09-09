@@ -54,7 +54,7 @@ misra-c2012-11.3:Platform/PlusTcp/Source/SolidSyslogPlusTcpDatagram.c:57
 misra-c2012-11.3:Platform/FreeRtos/Source/SolidSyslogFreeRtosMutex.c:52
 misra-c2012-11.3:Platform/PlusTcp/Source/SolidSyslogPlusTcpResolver.c:48
 misra-c2012-11.3:Platform/PlusTcp/Source/SolidSyslogPlusTcpTcpStream.c:129
-misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:116
+misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:131
 misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsHandleCredentials.c:59
 misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsPemBufferCredentials.c:73
 misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsHmacSha256Policy.c:83
@@ -89,8 +89,9 @@ misra-c2012-11.5:Platform/LwipRaw/Source/SolidSyslogLwipRawDnsResolver.c:158
 misra-c2012-11.5:Platform/LwipRaw/Source/SolidSyslogLwipRawDnsResolver.c:220
 misra-c2012-11.5:Platform/LwipRaw/Source/SolidSyslogLwipRawTcpStream.c:154
 misra-c2012-11.5:Platform/LwipRaw/Source/SolidSyslogLwipRawTcpStream.c:162
-misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:423
-misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:435
+misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:297
+misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:578
+misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:590
 
 # D.003 — Rule 5.7: repeating struct tags (no-typedef-struct convention)
 # See docs/misra-deviations.md#d003
@@ -147,7 +148,7 @@ misra-c2012-5.7:Core/Source/SolidSyslogUdpPayload.c:9
 misra-c2012-5.7:Core/Source/SolidSyslogTlsFingerprint.c:8
 misra-c2012-5.7:Platform/PlusTcp/Source/SolidSyslogPlusTcpResolver.c:29
 misra-c2012-5.7:Platform/PlusTcp/Source/SolidSyslogPlusTcpTcpStream.c:40
-misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:30
+misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:33
 misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsHmacSha256Policy.c:25
 misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsAesGcmPolicy.c:28
 misra-c2012-5.7:Platform/OpenSsl/Source/SolidSyslogOpenSslAesGcmPolicy.c:26
@@ -201,8 +202,8 @@ misra-c2012-8.9:Core/Source/SolidSyslogFileBlockDevice.c:24
 
 # D.013 — Rule 11.5: void* <-> a byte pointer at third-party byte-buffer API boundaries
 # See docs/misra-deviations.md#d013
-misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:460
-misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:478
+misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:615
+misra-c2012-11.5:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:633
 misra-c2012-11.5:Platform/Windows/Source/SolidSyslogWinsockDatagram.c:146
 misra-c2012-11.5:Platform/Windows/Source/SolidSyslogWinsockTcpStream.c:361
 misra-c2012-11.5:Platform/Windows/Source/SolidSyslogWinsockTcpStream.c:381

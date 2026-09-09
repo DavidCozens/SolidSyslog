@@ -72,12 +72,6 @@ claim can be checked against the directory.
 
 Each is tracked. Read them before relying on the corresponding obligation.
 
-### A peer cannot be authorised by certificate fingerprint
-
-Only certification path validation is offered, so a deployment with no PKI has no
-way to pin the collector's certificate. Tracked as
-[#753](https://github.com/cososo-ltd/solid-syslog/issues/753).
-
 ### The cipher policy cannot be expressed
 
 The configuration carries no cipher or ciphersuite field, so the ciphersuites

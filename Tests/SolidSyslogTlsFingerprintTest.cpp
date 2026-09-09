@@ -372,3 +372,27 @@ TEST(SolidSyslogTlsFingerprintAuthorise, AMissingPinInTheListIsMalformed)
 
     LONGS_EQUAL(SOLIDSYSLOG_TLS_AUTHORISATION_MALFORMED, Authorise(pins, 1));
 }
+
+TEST(SolidSyslogTlsFingerprint, AnEmptyListIsPresent)
+{
+    CHECK_TRUE(SolidSyslogTlsFingerprint_ListIsPresent(nullptr, 0));
+}
+
+TEST(SolidSyslogTlsFingerprint, AListBehindItsCountIsPresent)
+{
+    const char* pins[] = {"sha-256:AA", "sha-256:BB"};
+
+    CHECK_TRUE(SolidSyslogTlsFingerprint_ListIsPresent(pins, 2));
+}
+
+TEST(SolidSyslogTlsFingerprint, ACountWithNoListBehindItIsNotPresent)
+{
+    CHECK_FALSE(SolidSyslogTlsFingerprint_ListIsPresent(nullptr, 1));
+}
+
+TEST(SolidSyslogTlsFingerprint, AListWithAMissingPinIsNotPresent)
+{
+    const char* pins[] = {"sha-256:AA", nullptr};
+
+    CHECK_FALSE(SolidSyslogTlsFingerprint_ListIsPresent(pins, 2));
+}

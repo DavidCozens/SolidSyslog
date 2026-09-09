@@ -20,6 +20,9 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         /* Non-NULL switches the server to require + verify a client cert
          * against this CA - drives the mTLS scenarios. NULL = server-auth only. */
         const struct MbedTlsTestCert* TrustedClientCa;
+        /* NULL presents the leaf alone; set to send the issuer with it, as a
+           correctly configured collector does. */
+        const struct MbedTlsTestCert* IssuerCert;
     };
 
     /* Spawns a worker thread that drives the server-side handshake. The

@@ -226,7 +226,20 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallWithoutACaChainReportsNoTrustAn
     CHECK_FALSE(installed.TrustAnchorsInstalled);
 }
 
-TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsNoFingerprints)
+TEST(SolidSyslogMbedTlsHandleCredentials, InstallPassesTheConfiguredPeerFingerprintsThrough)
+{
+    const char* pins[] = {"sha-256:AA", "sha-256:BB"};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+    credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
+
+    credentials->Install(credentials, &conf, &installed);
+
+    POINTERS_EQUAL(pins, installed.Fingerprints);
+    UNSIGNED_LONGS_EQUAL(2, installed.FingerprintCount);
+}
+
+TEST(SolidSyslogMbedTlsHandleCredentials, InstallWithoutPeerFingerprintsReportsNone)
 {
     const char* pin = "sha-256:AA";
     installed.Fingerprints = &pin;
@@ -237,6 +250,43 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsNoFingerprints)
 
     POINTERS_EQUAL(nullptr, installed.Fingerprints);
     UNSIGNED_LONGS_EQUAL(0, installed.FingerprintCount);
+}
+
+TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAPinCountButNoPinListReturnsTheNullCredentials)
+{
+    config.PeerFingerprintCount = 1;
+
+    credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
+
+    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
+    credentials = nullptr;
+}
+
+TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAPinCountButNoPinListReportsBadConfig)
+{
+    ErrorHandlerFake_Install(nullptr);
+    config.PeerFingerprintCount = 1;
+
+    SolidSyslogMbedTlsHandleCredentials_Create(&config);
+
+    CHECK_ERROR_REPORTED_ONCE(
+        SOLIDSYSLOG_SEVERITY_CRITICAL,
+        &SolidSyslogMbedTlsHandleCredentialsErrorSource,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+    );
+}
+
+TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAMissingPinInTheListReturnsTheNullCredentials)
+{
+    const char* pins[] = {"sha-256:AA", nullptr};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+
+    credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
+
+    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
+    credentials = nullptr;
 }
 
 TEST(SolidSyslogMbedTlsHandleCredentials, InstallPresentsTheConfiguredClientCredential)

@@ -22,6 +22,7 @@ struct MbedTlsTestServer
     pthread_t Thread;
     bool ThreadJoined;
     bool HandshakeSucceeded;
+    mbedtls_x509_crt* ChainedLeaf;
 };
 
 static void* RunServer(void* arg);
@@ -63,6 +64,15 @@ struct MbedTlsTestServer* MbedTlsTestServer_Create(const struct MbedTlsTestServe
         /* Server-auth only - no client cert requested. */
         mbedtls_ssl_conf_authmode(&self->SslConfig, MBEDTLS_SSL_VERIFY_NONE);
     }
+    /* mbedtls_x509_crt is a linked list and the whole list is sent, so linking
+       the issuer onto the leaf is what presents a chain. Unlinked in Destroy so
+       neither certificate is freed through the other. */
+    self->ChainedLeaf = NULL;
+    if (config->IssuerCert != NULL)
+    {
+        self->ChainedLeaf = (mbedtls_x509_crt*) &config->ServerCert->Cert;
+        self->ChainedLeaf->next = (mbedtls_x509_crt*) &config->IssuerCert->Cert;
+    }
     mbedtls_ssl_conf_own_cert(
         &self->SslConfig,
         (mbedtls_x509_crt*) &config->ServerCert->Cert,
@@ -81,6 +91,11 @@ void MbedTlsTestServer_Destroy(struct MbedTlsTestServer* self)
 {
     if (self != NULL)
     {
+        if (self->ChainedLeaf != NULL)
+        {
+            self->ChainedLeaf->next = NULL;
+            self->ChainedLeaf = NULL;
+        }
         if (!self->ThreadJoined)
         {
             /* Worker might still be blocked in recv. Shutting the fd
