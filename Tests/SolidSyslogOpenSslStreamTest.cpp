@@ -41,7 +41,7 @@ class TEST_SolidSyslogOpenSslStream_ReadReturnsNegativeOneOnHardErrorAndClosesSs
 class TEST_SolidSyslogOpenSslStream_ReadReturnsNegativeOneOnZeroReturnAndClosesSsl_Test;
 class TEST_SolidSyslogOpenSslStream_SendClosesTransportOnWriteFailure_Test;
 
-/* One RFC 5425 4.2.2 pin and the DER digest that matches it. */
+/* One RFC 5425 4.2.2 pin and the digest that matches it. */
 static const char* const TEST_SHA256_PINS[] = {
     "sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F"
 };
@@ -196,8 +196,8 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         OpenSslFake_SetWriteFails(true);
     }
 
-    /* Open, then drive the verify callback OpenSSL would call for the leaf
-       certificate, with `preverifyOk` as OpenSSL's own verdict on it. */
+    /* Open, then drive the verify callback for the leaf certificate, with
+       `preverifyOk` as OpenSSL's own verdict on it. */
     [[nodiscard]] int OpenThenVerifyLeaf(int preverifyOk) const
     {
         SolidSyslogStream_Open(stream, addr);
@@ -1333,8 +1333,7 @@ TEST(SolidSyslogOpenSslStream, OpenWarnsOfASha1Pin)
 
 TEST(SolidSyslogOpenSslStream, OpenDoesNotWarnOfAMissingServerNameWhenThePeerIsPinned)
 {
-    /* Default config.ServerName is NULL - a pin names the peer as surely as a
-     * hostname would. */
+    /* Default config.ServerName is NULL. */
     OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
 
     CHECK_TRUE(SolidSyslogStream_Open(stream, addr));

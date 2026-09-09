@@ -30,9 +30,8 @@ struct SolidSyslogOpenSslStream
      * call returned, and Close is idempotent, so the flag is what keeps both
      * true at once. */
     bool CredentialsInstalled;
-    /* What the last Install reported, kept for the connection because the
-     * verify callback and the hostname step both read it after Install has
-     * returned. Valid only while CredentialsInstalled. */
+    /* What the last Install reported. Read after Install returns, by the verify
+     * callback and by the hostname step; valid only while CredentialsInstalled. */
     struct SolidSyslogTlsCredentialsInstalled Installed;
 };
 

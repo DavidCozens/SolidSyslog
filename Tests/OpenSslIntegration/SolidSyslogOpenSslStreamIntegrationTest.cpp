@@ -70,9 +70,8 @@ TEST_GROUP(OpenSslStreamIntegration)
     struct SolidSyslogStream*         tlsStream      = nullptr;
     struct SolidSyslogAddress*        addr           = nullptr;
     char                              caPath[256]     = {};
-    /* Set before buildScenario: a label pins the server's own certificate with
-       that hash, a literal pins whatever it says, and clearing the anchors
-       leaves the pin as the only thing authorising the peer. */
+    /* Set before buildScenario. A label pins the server's own certificate with
+       that hash; a literal pins whatever it says. */
     const char*                       pinLabel        = nullptr;
     const char*                       pinLiteral      = nullptr;
     bool                              installTrustAnchors = true;
@@ -408,8 +407,6 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertMatchesNoPin)
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
-/* A pin says which certificate the peer may present, not that an expired one
- * has become acceptable. */
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
 {
     struct TlsTestCertConfig certConfig = {};
@@ -436,8 +433,6 @@ TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinA
     CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
 }
 
-/* Both have to be satisfied: a chain the client trusts does not excuse a
- * certificate the integrator did not pin. */
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheChainIsTrustedButNoPinMatches)
 {
     struct TlsTestCertConfig certConfig = {};

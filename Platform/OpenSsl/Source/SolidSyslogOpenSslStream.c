@@ -255,9 +255,8 @@ static inline bool OpenSslStream_PeerIsAuthorisable(const struct SolidSyslogTlsC
     return installed->TrustAnchorsInstalled || (installed->FingerprintCount > 0U);
 }
 
-/* Looked over before the handshake, so a pin that would never match is a
- * configuration fault at Open rather than a refusal that looks like the
- * peer's, and a SHA-1 pin is warned of once per connection. */
+/* Inspected before the handshake, so a pin that cannot match is reported as
+ * bad configuration rather than as a refused peer. */
 static inline bool OpenSslStream_FingerprintsAreUsable(const struct SolidSyslogTlsCredentialsInstalled* installed)
 {
     bool ok = true;
@@ -326,14 +325,8 @@ static inline bool OpenSslStream_RequirePeerVerification(SSL_CTX* ctx)
     return true;
 }
 
-/* OpenSSL's verdict on each certificate in the chain arrives here, leaf last.
- * Only the leaf is pinned, so the rest pass through untouched. A pinned peer
- * whose leaf matches no pin is refused whatever the chain said, through the
- * one error code OpenSSL reserves for an application's own check. A matching
- * pin authorises the peer on its own where no trust anchors were installed,
- * so the objection that no chain could be built is waived there - and only
- * there: the certificate's own validity still stands, and with anchors both
- * must be satisfied. */
+/* Called for each certificate in the chain; only the leaf, at depth 0, is
+ * pinned. */
 static int OpenSslStream_VerifyPeer(int preverifyOk, X509_STORE_CTX* storeCtx)
 {
     int verdict = preverifyOk;
@@ -348,9 +341,8 @@ static int OpenSslStream_VerifyPeer(int preverifyOk, X509_STORE_CTX* storeCtx)
     return verdict;
 }
 
-/* The store context belongs to a handshake in progress, and OpenSSL files the
- * SSL running it under a well-known ex_data index; the stream is that SSL's
- * app data. */
+/* OpenSSL files the SSL running the handshake under a well-known ex_data index
+ * on the store context; the stream is that SSL's app data. */
 static inline struct SolidSyslogOpenSslStream* OpenSslStream_SelfFromStoreCtx(X509_STORE_CTX* storeCtx)
 {
     SSL* ssl = (SSL*) X509_STORE_CTX_get_ex_data(storeCtx, SSL_get_ex_data_X509_STORE_CTX_idx());
@@ -415,8 +407,7 @@ static inline bool OpenSslStream_IsChainTrustWaived(
            OpenSslStream_IsChainTrustError(X509_STORE_CTX_get_error(storeCtx));
 }
 
-/* The objections a missing trust anchor raises and nothing else does. Every
- * other code - validity dates, name, key usage, a bad signature - describes
+/* The errors a missing trust anchor alone produces. Every other code describes
  * the certificate itself, which a pin does not vouch for. */
 static inline bool OpenSslStream_IsChainTrustError(int error)
 {

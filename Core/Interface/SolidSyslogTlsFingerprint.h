@@ -48,8 +48,8 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
      *  in exactly that form. */
     bool SolidSyslogTlsFingerprint_Parse(const char* text, struct SolidSyslogTlsFingerprint* out);
 
-    /** What a look over a pin list before any handshake finds, worst pin
-     *  first: a pin that will not parse outweighs one that names SHA-1. */
+    /** The worst state found in a pin list: a pin that will not parse
+     *  outweighs one that names SHA-1. */
     enum SolidSyslogTlsFingerprintListState
     {
         SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED,
@@ -58,8 +58,9 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     };
 
     /** Inspects @p count pins before a handshake, so a stream can refuse a
-     *  malformed list and warn of a SHA-1 pin once per connection rather than
-     *  discovering either while a peer waits. An empty list is well formed. */
+     *  malformed list and warn of a SHA-1 pin once per connection. An empty
+     *  list is well formed, as is a NULL one with a count of zero; a count
+     *  with no list behind it, or a NULL pin in one, is malformed. */
     enum SolidSyslogTlsFingerprintListState SolidSyslogTlsFingerprint_InspectList(
         const char* const * fingerprints,
         size_t count
@@ -68,9 +69,9 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     /** How a TLS stream obtains the digest of the peer's certificate: writes
      *  the hash of its DER encoding under @p algorithm into @p digest, which
      *  holds SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX bytes, and its length into
-     *  @p length. Returns false where the algorithm cannot be computed - a
-     *  hash compiled out of the TLS library - and the peer is then refused
-     *  rather than passed. */
+     *  @p length. Returns false where the algorithm cannot be computed, for
+     *  instance a hash compiled out of the TLS library; the peer is then
+     *  refused. */
     typedef bool (*SolidSyslogTlsDigestFunction)(
         void* context,
         enum SolidSyslogTlsHashAlgorithm algorithm,

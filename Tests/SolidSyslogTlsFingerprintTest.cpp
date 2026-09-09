@@ -168,7 +168,7 @@ TEST_GROUP(SolidSyslogTlsFingerprintAuthorise)
         GivePeerADigestOfLength(20);
     }
 
-    /* An ascending pattern, so a pin written out by hand matches it. */
+    /* An ascending pattern, matching the pins written out in the tests. */
     void GivePeerADigestOfLength(size_t length)
     {
         uint8_t* digest = fake.Digest;
@@ -287,4 +287,35 @@ TEST(SolidSyslogTlsFingerprint, AMalformedPinOutweighsASha1One)
 TEST(SolidSyslogTlsFingerprint, AnEmptyListIsWellFormed)
 {
     LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED, SolidSyslogTlsFingerprint_InspectList(nullptr, 0));
+}
+
+TEST(SolidSyslogTlsFingerprint, ParsingAMissingFingerprintFails)
+{
+    struct SolidSyslogTlsFingerprint fingerprint = {};
+
+    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(nullptr, &fingerprint));
+}
+
+TEST(SolidSyslogTlsFingerprint, AListThatIsMissingWhereOneWasCountedIsMalformed)
+{
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED, SolidSyslogTlsFingerprint_InspectList(nullptr, 1));
+}
+
+TEST(SolidSyslogTlsFingerprint, AMissingPinInTheListIsMalformed)
+{
+    const char* pins[] = {nullptr};
+
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED, SolidSyslogTlsFingerprint_InspectList(pins, 1));
+}
+
+TEST(SolidSyslogTlsFingerprintAuthorise, AListThatIsMissingWhereOneWasCountedIsMalformed)
+{
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_AUTHORISATION_MALFORMED, Authorise(nullptr, 1));
+}
+
+TEST(SolidSyslogTlsFingerprintAuthorise, AMissingPinInTheListIsMalformed)
+{
+    const char* pins[] = {nullptr};
+
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_AUTHORISATION_MALFORMED, Authorise(pins, 1));
 }
