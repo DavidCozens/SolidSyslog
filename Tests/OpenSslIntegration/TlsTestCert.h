@@ -1,6 +1,7 @@
 #ifndef TLSTESTCERT_H
 #define TLSTESTCERT_H
 
+#include <stddef.h>
 #include <time.h>
 #include <openssl/types.h>
 
@@ -27,6 +28,11 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     void TlsTestCert_Destroy(struct TlsTestCert * cert);
     void TlsTestCert_WritePemToFile(const struct TlsTestCert* cert, const char* path);
     void TlsTestCert_WritePrivateKeyPemToFile(const struct TlsTestCert* cert, const char* path);
+
+    /* Write the certificate's fingerprint in the RFC 5425 4.2.2 form -
+       "<label>:XX:XX:...", where `label` is "sha-1" or "sha-256" and names
+       both the IANA hash and the digest to take. */
+    void TlsTestCert_WriteFingerprint(const struct TlsTestCert* cert, const char* label, char* out, size_t capacity);
 
 SOLIDSYSLOG_EXTERN_C_END
 

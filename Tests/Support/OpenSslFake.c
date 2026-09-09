@@ -11,6 +11,7 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/types.h>
+#include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 
 /* -------------------------------------------------------------------------
@@ -125,6 +126,27 @@ static bool loadVerifyLocationsFails;
 /* SSL_CTX_set_verify */
 static SSL_CTX* lastSetVerifyCtxArg;
 static int lastVerifyMode;
+static SSL_verify_cb lastVerifyCallback;
+
+/* SSL ex_data / X509_STORE_CTX / X509_digest */
+enum
+{
+    FAKE_SSL_STORE_CTX_IDX = 7,
+    FAKE_DIGEST_MAX = 64
+};
+
+static int lastSslExDataIndex;
+static void* lastSslExData;
+static bool sslExDataFails;
+static int fakeStoreCtxStorage;
+static int fakeCertStorage;
+static int storeCtxDepth;
+static int storeCtxError;
+static uint8_t certDigest[FAKE_DIGEST_MAX];
+static size_t certDigestLength;
+static bool digestFails;
+static const EVP_MD* lastDigestMd;
+static int fakeSha1Storage;
 
 /* SSL_CTX_ctrl (SET_MIN_PROTO_VERSION) */
 static SSL_CTX* lastSslCtxCtrlCtxArg;
@@ -264,6 +286,15 @@ void OpenSslFake_Reset(void)
     loadVerifyLocationsFails = false;
     lastSetVerifyCtxArg = NULL;
     lastVerifyMode = 0;
+    lastVerifyCallback = NULL;
+    lastSslExDataIndex = -1;
+    lastSslExData = NULL;
+    sslExDataFails = false;
+    storeCtxDepth = 0;
+    storeCtxError = X509_V_OK;
+    certDigestLength = 0;
+    digestFails = false;
+    lastDigestMd = NULL;
     lastSslCtxCtrlCtxArg = NULL;
     lastMinProtoVersion = 0;
     minProtoVersionFails = false;
@@ -671,9 +702,128 @@ void OpenSslFake_SetLoadVerifyLocationsFails(bool fails)
 
 void SSL_CTX_set_verify(SSL_CTX* ctx, int mode, SSL_verify_cb verify_callback)
 {
-    (void) verify_callback;
     lastSetVerifyCtxArg = ctx;
     lastVerifyMode = mode;
+    lastVerifyCallback = verify_callback;
+}
+
+SSL_verify_cb OpenSslFake_LastVerifyCallback(void)
+{
+    return lastVerifyCallback;
+}
+
+int SSL_set_ex_data(SSL* ssl, int idx, void* data)
+{
+    (void) ssl;
+    lastSslExDataIndex = idx;
+    lastSslExData = data;
+    return sslExDataFails ? 0 : 1;
+}
+
+void* SSL_get_ex_data(const SSL* ssl, int idx)
+{
+    (void) ssl;
+    return (idx == lastSslExDataIndex) ? lastSslExData : NULL;
+}
+
+int OpenSslFake_LastSslExDataIndex(void)
+{
+    return lastSslExDataIndex;
+}
+
+void* OpenSslFake_LastSslExData(void)
+{
+    return lastSslExData;
+}
+
+void OpenSslFake_SetSslExDataFails(bool fails)
+{
+    sslExDataFails = fails;
+}
+
+int SSL_get_ex_data_X509_STORE_CTX_idx(void)
+{
+    return FAKE_SSL_STORE_CTX_IDX;
+}
+
+void* X509_STORE_CTX_get_ex_data(const X509_STORE_CTX* ctx, int idx)
+{
+    (void) ctx;
+    return (idx == FAKE_SSL_STORE_CTX_IDX) ? (void*) &fakeSslStorage : NULL;
+}
+
+int X509_STORE_CTX_get_error_depth(const X509_STORE_CTX* ctx)
+{
+    (void) ctx;
+    return storeCtxDepth;
+}
+
+int X509_STORE_CTX_get_error(const X509_STORE_CTX* ctx)
+{
+    (void) ctx;
+    return storeCtxError;
+}
+
+void X509_STORE_CTX_set_error(X509_STORE_CTX* ctx, int s)
+{
+    (void) ctx;
+    storeCtxError = s;
+}
+
+X509* X509_STORE_CTX_get_current_cert(const X509_STORE_CTX* ctx)
+{
+    (void) ctx;
+    return (X509*) &fakeCertStorage;
+}
+
+int X509_digest(const X509* data, const EVP_MD* type, unsigned char* md, unsigned int* len)
+{
+    (void) data;
+    lastDigestMd = type;
+    memcpy(md, certDigest, certDigestLength);
+    *len = (unsigned int) certDigestLength;
+    return digestFails ? 0 : 1;
+}
+
+const EVP_MD* EVP_sha1(void)
+{
+    return (const EVP_MD*) &fakeSha1Storage;
+}
+
+X509_STORE_CTX* OpenSslFake_StoreCtx(void)
+{
+    return (X509_STORE_CTX*) &fakeStoreCtxStorage;
+}
+
+void OpenSslFake_SetStoreCtxDepth(int depth)
+{
+    storeCtxDepth = depth;
+}
+
+void OpenSslFake_SetStoreCtxError(int error)
+{
+    storeCtxError = error;
+}
+
+int OpenSslFake_StoreCtxError(void)
+{
+    return storeCtxError;
+}
+
+void OpenSslFake_SetCertDigest(const uint8_t* digest, size_t length)
+{
+    memcpy(certDigest, digest, length);
+    certDigestLength = length;
+}
+
+void OpenSslFake_SetDigestFails(bool fails)
+{
+    digestFails = fails;
+}
+
+const void* OpenSslFake_LastDigestMd(void)
+{
+    return lastDigestMd;
 }
 
 /* SSL_CTX_set_min_proto_version is a macro forwarding to SSL_CTX_ctrl; fake

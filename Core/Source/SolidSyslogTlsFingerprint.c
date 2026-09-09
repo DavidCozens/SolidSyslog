@@ -8,19 +8,14 @@ enum
 {
     TLS_FINGERPRINT_SHA1_LENGTH = 20U,
     TLS_FINGERPRINT_SHA256_LENGTH = 32U,
-    TLS_FINGERPRINT_NIBBLE_BITS = 4U
+    TLS_FINGERPRINT_HEX_BASE = 16U
 };
 
-struct TlsFingerprintLabel
+struct SolidSyslogTlsFingerprintLabel
 {
     const char* Label;
     enum SolidSyslogTlsHashAlgorithm Algorithm;
     size_t Length;
-};
-
-static const struct TlsFingerprintLabel TLS_FINGERPRINT_LABELS[] = {
-    {"sha-1", SOLIDSYSLOG_TLS_HASH_SHA1, TLS_FINGERPRINT_SHA1_LENGTH},
-    {"sha-256", SOLIDSYSLOG_TLS_HASH_SHA256, TLS_FINGERPRINT_SHA256_LENGTH},
 };
 
 static inline bool TlsFingerprint_ParseLabel(
@@ -32,6 +27,7 @@ static inline bool TlsFingerprint_LabelMatches(const char* text, const char* lab
 static inline bool TlsFingerprint_ParseHexPairs(const char* text, uint8_t* digest, size_t length);
 static inline bool TlsFingerprint_ParseHexPair(const char* text, uint8_t* value);
 static inline bool TlsFingerprint_HexValue(char c, uint8_t* value);
+static inline enum SolidSyslogTlsFingerprintListState TlsFingerprint_InspectOne(const char* text);
 static inline enum SolidSyslogTlsAuthorisation TlsFingerprint_AuthoriseOne(
     const char* fingerprint,
     SolidSyslogTlsDigestFunction digest,
@@ -62,6 +58,10 @@ static inline bool TlsFingerprint_ParseLabel(
     struct SolidSyslogTlsFingerprint* out
 )
 {
+    static const struct SolidSyslogTlsFingerprintLabel TLS_FINGERPRINT_LABELS[] = {
+        {"sha-1", SOLIDSYSLOG_TLS_HASH_SHA1, TLS_FINGERPRINT_SHA1_LENGTH},
+        {"sha-256", SOLIDSYSLOG_TLS_HASH_SHA256, TLS_FINGERPRINT_SHA256_LENGTH},
+    };
     bool parsed = false;
     size_t count = sizeof(TLS_FINGERPRINT_LABELS) / sizeof(TLS_FINGERPRINT_LABELS[0]);
 
@@ -107,9 +107,9 @@ static inline bool TlsFingerprint_ParseHexPairs(const char* text, uint8_t* diges
         parsed = TlsFingerprint_ParseHexPair(&text[position], &digest[i]);
         position += 2U;
 
-        if (parsed && (i + 1U < length))
+        if (parsed && ((i + 1U) < length))
         {
-            parsed = text[position] == ':';
+            parsed = (text[position] == ':');
             position++;
         }
     }
@@ -125,30 +125,63 @@ static inline bool TlsFingerprint_ParseHexPair(const char* text, uint8_t* value)
 
     if (parsed)
     {
-        *value = (uint8_t) ((uint8_t) (high << TLS_FINGERPRINT_NIBBLE_BITS) | low);
+        *value = (uint8_t) ((uint8_t) (high << 4U) | low);
     }
 
     return parsed;
 }
 
+/* Matched against the digit table rather than computed from the character's
+ * code, so nothing here depends on the execution character set being one where
+ * 'A' through 'F' are contiguous. */
 static inline bool TlsFingerprint_HexValue(char c, uint8_t* value)
 {
-    bool parsed = true;
+    static const char TLS_FINGERPRINT_HEX_DIGITS[] = "0123456789ABCDEF";
+    bool parsed = false;
 
-    if ((c >= '0') && (c <= '9'))
+    for (uint8_t i = 0U; (i < TLS_FINGERPRINT_HEX_BASE) && !parsed; i++)
     {
-        *value = (uint8_t) (c - '0');
-    }
-    else if ((c >= 'A') && (c <= 'F'))
-    {
-        *value = (uint8_t) ((c - 'A') + 10);
-    }
-    else
-    {
-        parsed = false;
+        if (c == TLS_FINGERPRINT_HEX_DIGITS[i])
+        {
+            *value = i;
+            parsed = true;
+        }
     }
 
     return parsed;
+}
+
+enum SolidSyslogTlsFingerprintListState SolidSyslogTlsFingerprint_InspectList(
+    const char* const * fingerprints,
+    size_t count
+)
+{
+    enum SolidSyslogTlsFingerprintListState state = SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED;
+
+    for (size_t i = 0; i < count; i++)
+    {
+        enum SolidSyslogTlsFingerprintListState one = TlsFingerprint_InspectOne(fingerprints[i]);
+        if (one > state)
+        {
+            state = one;
+        }
+    }
+
+    return state;
+}
+
+static inline enum SolidSyslogTlsFingerprintListState TlsFingerprint_InspectOne(const char* text)
+{
+    struct SolidSyslogTlsFingerprint parsed;
+    enum SolidSyslogTlsFingerprintListState state = SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED;
+
+    if (SolidSyslogTlsFingerprint_Parse(text, &parsed))
+    {
+        state = (parsed.Algorithm == SOLIDSYSLOG_TLS_HASH_SHA1) ? SOLIDSYSLOG_TLS_FINGERPRINT_LIST_USES_SHA1
+                                                                : SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED;
+    }
+
+    return state;
 }
 
 enum SolidSyslogTlsAuthorisation SolidSyslogTlsFingerprint_Authorise(

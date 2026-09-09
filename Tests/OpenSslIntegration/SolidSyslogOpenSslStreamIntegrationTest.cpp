@@ -70,6 +70,14 @@ TEST_GROUP(OpenSslStreamIntegration)
     struct SolidSyslogStream*         tlsStream      = nullptr;
     struct SolidSyslogAddress*        addr           = nullptr;
     char                              caPath[256]     = {};
+    /* Set before buildScenario: a label pins the server's own certificate with
+       that hash, a literal pins whatever it says, and clearing the anchors
+       leaves the pin as the only thing authorising the peer. */
+    const char*                       pinLabel        = nullptr;
+    const char*                       pinLiteral      = nullptr;
+    bool                              installTrustAnchors = true;
+    char                              pinText[160]    = {};
+    const char*                       pins[1]         = {};
     char                              clientCertPath[256] = {};
     char                              clientKeyPath[256]  = {};
 
@@ -125,7 +133,11 @@ TEST_GROUP(OpenSslStreamIntegration)
         transport = BioPairStream_Create(TlsTestServer_ClientSideBio(server));
         BioPairStream_SetPump(transport, TlsTestServer_Pump, server);
 
-        credsConfig.CaBundlePath = caPath;
+        if (installTrustAnchors)
+        {
+            credsConfig.CaBundlePath = caPath;
+        }
+        applyPinPolicy();
         credentials              = SolidSyslogOpenSslPemFileCredentials_Create(&credsConfig);
 
         tlsConfig.Transport    = transport;
@@ -133,6 +145,24 @@ TEST_GROUP(OpenSslStreamIntegration)
         tlsConfig.Credentials  = credentials;
         tlsConfig.ServerName   = clientServerName;
         tlsStream              = SolidSyslogOpenSslStream_Create(&tlsConfig);
+    }
+
+    void applyPinPolicy()
+    {
+        if (pinLabel != nullptr)
+        {
+            TlsTestCert_WriteFingerprint(&cert, pinLabel, pinText, sizeof(pinText));
+            pins[0] = pinText;
+        }
+        else if (pinLiteral != nullptr)
+        {
+            pins[0] = pinLiteral;
+        }
+        if (pins[0] != nullptr)
+        {
+            credsConfig.PeerFingerprints    = pins;
+            credsConfig.PeerFingerprintCount = 1;
+        }
     }
 
     /* Creates the client-side mTLS material and writes it to disk.
@@ -342,4 +372,113 @@ TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByU
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
     TlsTestCert_Destroy(&untrustedCa);
+}
+
+/* -------------------------------------------------------------------------
+ * Certificate fingerprint authorisation (RFC 5425 4.2.2).
+ * ------------------------------------------------------------------------- */
+
+/* A pin no certificate will ever match. */
+static const char* const UNMATCHABLE_PIN = "sha-256:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:"
+                                           "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenAPinIsTheOnlyThingAuthorisingTheServer)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(0, CapturedErrorCount);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertMatchesNoPin)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = UNMATCHABLE_PIN;
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+/* A pin says which certificate the peer may present, not that an expired one
+ * has become acceptable. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    certConfig.notBefore = std::time(nullptr) - 7200;
+    certConfig.notAfter = std::time(nullptr) - 3600;
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinAgree)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-256";
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+/* Both have to be satisfied: a chain the client trusts does not excuse a
+ * certificate the integrator did not pin. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheChainIsTrustedButNoPinMatches)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = UNMATCHABLE_PIN;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstASha1PinAndWarnsOfIt)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-1";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(1, CapturedErrorCount);
+    LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_WARNING, LastCapturedError.Severity);
+    POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
+    UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
+    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_SHA1, LastCapturedError.Detail);
+}
+
+TEST(OpenSslStreamIntegration, OpenFailsWhenAPinIsMalformed)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = "sha-256:not-a-fingerprint";
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(1, CapturedErrorCount);
+    LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_ERROR, LastCapturedError.Severity);
+    POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
+    UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
+    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED, LastCapturedError.Detail);
 }

@@ -28,7 +28,10 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     };
 
     /** The longest digest a supported algorithm produces, in bytes. */
-#define SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX 32U
+    enum
+    {
+        SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX = 32
+    };
 
     /** A parsed fingerprint: which hash, and its bytes. */
     struct SolidSyslogTlsFingerprint
@@ -44,6 +47,23 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
      *  not a supported algorithm or the digest is not that algorithm's length
      *  in exactly that form. */
     bool SolidSyslogTlsFingerprint_Parse(const char* text, struct SolidSyslogTlsFingerprint* out);
+
+    /** What a look over a pin list before any handshake finds, worst pin
+     *  first: a pin that will not parse outweighs one that names SHA-1. */
+    enum SolidSyslogTlsFingerprintListState
+    {
+        SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED,
+        SOLIDSYSLOG_TLS_FINGERPRINT_LIST_USES_SHA1,
+        SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED
+    };
+
+    /** Inspects @p count pins before a handshake, so a stream can refuse a
+     *  malformed list and warn of a SHA-1 pin once per connection rather than
+     *  discovering either while a peer waits. An empty list is well formed. */
+    enum SolidSyslogTlsFingerprintListState SolidSyslogTlsFingerprint_InspectList(
+        const char* const * fingerprints,
+        size_t count
+    );
 
     /** How a TLS stream obtains the digest of the peer's certificate: writes
      *  the hash of its DER encoding under @p algorithm into @p digest, which

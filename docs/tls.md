@@ -97,7 +97,8 @@ hex pairs. Labels come from the IANA
 registry and are hyphenated, so `sha-256` and `sha-1` rather than `sha256` or
 `sha1`. A `Stream` accepts both of those algorithms. §4.2.2 makes SHA-1 mandatory
 to support; `sha-256` is the one to configure where the collector offers a
-choice.
+choice, and a `sha-1` pin is reported on every connection that uses one, because
+a collision against SHA-1 is what a pinned peer is exposed to.
 
 A **list** of fingerprints is accepted, and any one of them authorises the peer.
 A fingerprint covers the whole DER certificate, so it changes every time the

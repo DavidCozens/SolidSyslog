@@ -191,7 +191,20 @@ TEST(SolidSyslogOpenSslPemFileCredentials, InstallWithoutATrustAnchorPathReports
     CHECK_FALSE(installed.TrustAnchorsInstalled);
 }
 
-TEST(SolidSyslogOpenSslPemFileCredentials, InstallReportsNoFingerprints)
+TEST(SolidSyslogOpenSslPemFileCredentials, InstallPassesTheConfiguredPeerFingerprintsThrough)
+{
+    const char* pins[] = {"sha-256:AA", "sha-256:BB"};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+    credentials = SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    credentials->Install(credentials, ctx, &installed);
+
+    POINTERS_EQUAL(pins, installed.Fingerprints);
+    UNSIGNED_LONGS_EQUAL(2, installed.FingerprintCount);
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, InstallWithoutPeerFingerprintsReportsNone)
 {
     const char* pin = "sha-256:AA";
     installed.Fingerprints = &pin;

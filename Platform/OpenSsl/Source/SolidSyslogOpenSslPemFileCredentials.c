@@ -71,8 +71,8 @@ static bool OpenSslPemFileCredentials_Install(
     struct SolidSyslogOpenSslPemFileCredentials* self = OpenSslPemFileCredentials_SelfFromBase(base);
     bool ok = true;
     installed->TrustAnchorsInstalled = false;
-    installed->Fingerprints = NULL;
-    installed->FingerprintCount = 0U;
+    installed->Fingerprints = self->Config.PeerFingerprints;
+    installed->FingerprintCount = self->Config.PeerFingerprintCount;
     if (self->Config.CaBundlePath != NULL)
     {
         installed->TrustAnchorsInstalled = SSL_CTX_load_verify_locations(ctx, self->Config.CaBundlePath, NULL) == 1;

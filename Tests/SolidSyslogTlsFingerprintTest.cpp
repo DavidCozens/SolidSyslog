@@ -12,7 +12,7 @@ TEST_GROUP(SolidSyslogTlsFingerprint)
 
 TEST(SolidSyslogTlsFingerprint, ParsesTheRfc5425ExampleSha1Fingerprint)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
@@ -27,7 +27,7 @@ TEST(SolidSyslogTlsFingerprint, ParsesTheRfc5425ExampleSha1Fingerprint)
 
 TEST(SolidSyslogTlsFingerprint, ParsesASha256Fingerprint)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
         "sha-256:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:"
@@ -44,21 +44,21 @@ TEST(SolidSyslogTlsFingerprint, ParsesASha256Fingerprint)
 
 TEST(SolidSyslogTlsFingerprint, RejectsAnUnknownHashLabel)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse("md5:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF", &fingerprint));
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsALabelWithNoColonAfterIt)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse("sha-1", &fingerprint));
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsALabelThatOnlyBeginsLikeASupportedOne)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-10:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
@@ -68,7 +68,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsALabelThatOnlyBeginsLikeASupportedOne)
 
 TEST(SolidSyslogTlsFingerprint, RejectsADigestShorterThanTheAlgorithmProduces)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(
         SolidSyslogTlsFingerprint_Parse("sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E", &fingerprint)
@@ -77,7 +77,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsADigestShorterThanTheAlgorithmProduces)
 
 TEST(SolidSyslogTlsFingerprint, RejectsADigestLongerThanTheAlgorithmProduces)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00",
@@ -87,7 +87,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsADigestLongerThanTheAlgorithmProduces)
 
 TEST(SolidSyslogTlsFingerprint, RejectsLowercaseHexPairs)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:e1:2d:53:2b:7c:6b:8a:29:a2:76:c8:64:36:0b:08:4b:7a:f1:9e:9d",
@@ -97,7 +97,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsLowercaseHexPairs)
 
 TEST(SolidSyslogTlsFingerprint, RejectsACharacterThatIsNotHex)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:G1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
@@ -107,7 +107,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsACharacterThatIsNotHex)
 
 TEST(SolidSyslogTlsFingerprint, RejectsPunctuationWhereADigitIsExpected)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:*1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
@@ -117,7 +117,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsPunctuationWhereADigitIsExpected)
 
 TEST(SolidSyslogTlsFingerprint, RejectsASeparatorThatIsNotAColon)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:E1-2D-53-2B-7C-6B-8A-29-A2-76-C8-64-36-0B-08-4B-7A-F1-9E-9D",
@@ -127,7 +127,7 @@ TEST(SolidSyslogTlsFingerprint, RejectsASeparatorThatIsNotAColon)
 
 TEST(SolidSyslogTlsFingerprint, RejectsASingleDigitPair)
 {
-    struct SolidSyslogTlsFingerprint fingerprint;
+    struct SolidSyslogTlsFingerprint fingerprint = {};
 
     CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:E:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00",
@@ -165,10 +165,17 @@ TEST_GROUP(SolidSyslogTlsFingerprintAuthorise)
     void setup() override
     {
         fake.Available = true;
-        fake.Length = 20;
-        for (size_t i = 0; i < 20; i++)
+        GivePeerADigestOfLength(20);
+    }
+
+    /* An ascending pattern, so a pin written out by hand matches it. */
+    void GivePeerADigestOfLength(size_t length)
+    {
+        uint8_t* digest = fake.Digest;
+        fake.Length = length;
+        for (size_t i = 0; i < length; i++)
         {
-            fake.Digest[i] = static_cast<uint8_t>(i);
+            digest[i] = static_cast<uint8_t>(i);
         }
     }
 
@@ -191,11 +198,7 @@ TEST(SolidSyslogTlsFingerprintAuthorise, AsksForTheDigestThePinNames)
 {
     const char* pins[] = {"sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:"
                           "10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F"};
-    fake.Length = 32;
-    for (size_t i = 0; i < 32; i++)
-    {
-        fake.Digest[i] = static_cast<uint8_t>(i);
-    }
+    GivePeerADigestOfLength(32);
 
     LONGS_EQUAL(SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED, Authorise(pins, 1));
     LONGS_EQUAL(SOLIDSYSLOG_TLS_HASH_SHA256, fake.AlgorithmAsked);
@@ -248,4 +251,40 @@ TEST(SolidSyslogTlsFingerprintAuthorise, ReportsADigestThePeerCannotSupply)
     fake.Available = false;
 
     LONGS_EQUAL(SOLIDSYSLOG_TLS_AUTHORISATION_DIGEST_UNAVAILABLE, Authorise(pins, 1));
+}
+
+TEST(SolidSyslogTlsFingerprint, AListOfSha256PinsIsWellFormed)
+{
+    const char* pins[] = {
+        "sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:"
+        "10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F",
+    };
+
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED, SolidSyslogTlsFingerprint_InspectList(pins, 1));
+}
+
+TEST(SolidSyslogTlsFingerprint, AListWithASha1PinSaysSo)
+{
+    const char* pins[] = {
+        "sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:"
+        "10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F",
+        "sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
+    };
+
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_USES_SHA1, SolidSyslogTlsFingerprint_InspectList(pins, 2));
+}
+
+TEST(SolidSyslogTlsFingerprint, AMalformedPinOutweighsASha1One)
+{
+    const char* pins[] = {
+        "sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
+        "sha-256:not a fingerprint",
+    };
+
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED, SolidSyslogTlsFingerprint_InspectList(pins, 2));
+}
+
+TEST(SolidSyslogTlsFingerprint, AnEmptyListIsWellFormed)
+{
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_FINGERPRINT_LIST_WELL_FORMED, SolidSyslogTlsFingerprint_InspectList(nullptr, 0));
 }

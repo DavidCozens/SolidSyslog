@@ -45,12 +45,6 @@ after an outage or immediately by calling `SolidSyslogSender_Disconnect`.
 
 Each is tracked. Read them before relying on the corresponding obligation.
 
-### A peer cannot be authorised by certificate fingerprint
-
-Only certification path validation is offered, so a deployment with no PKI has no
-way to pin the collector's certificate. Tracked as
-[#753](https://github.com/cososo-ltd/solid-syslog/issues/753).
-
 ### The cipher policy does not bind a TLS 1.3 connection
 
 The cipher list is passed to OpenSSL unchanged and pins nothing of the library's
