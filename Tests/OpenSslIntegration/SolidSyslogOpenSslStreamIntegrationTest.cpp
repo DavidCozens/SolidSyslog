@@ -55,6 +55,8 @@ static void CaptureError(void* context, const struct SolidSyslogErrorEvent* even
         LONGS_EQUAL((expectedCode), LastCapturedError.Detail);                                         \
     }
 
+static const char* const LOCALHOST_SANS[] = {"localhost", nullptr};
+
 // clang-format off
 TEST_GROUP(OpenSslStreamIntegration)
 {
@@ -72,6 +74,7 @@ TEST_GROUP(OpenSslStreamIntegration)
     char                              caPath[256]     = {};
     /* Set before buildScenario. A label pins the server's own certificate with
        that hash; a literal pins whatever it says. */
+    const struct TlsTestCert*         serverIssuer    = nullptr;
     const char*                       pinLabel        = nullptr;
     const char*                       pinLiteral      = nullptr;
     bool                              installTrustAnchors = true;
@@ -125,6 +128,7 @@ TEST_GROUP(OpenSslStreamIntegration)
         TlsTestCert_WritePemToFile(&cert, caPath);
 
         struct TlsTestServerConfig serverConfig = {};
+        serverConfig.IssuerCert   = serverIssuer;
         serverConfig.ServerCert   = &cert;
         serverConfig.ClientCaCert = serverClientCa;
         server                    = TlsTestServer_Create(&serverConfig);
@@ -184,6 +188,25 @@ TEST_GROUP(OpenSslStreamIntegration)
         credsConfig.ClientKeyPath       = clientKeyPath;
     }
 
+    /* A collector certificate issued by a CA, which the server then presents
+       alongside the leaf. `clientCa` doubles as the issuer here. */
+    void givenAnIssuedServerCertificate()
+    {
+        struct TlsTestCertConfig caConfig = {};
+        caConfig.commonName               = "SolidSyslog Test Collector CA";
+        TlsTestCert_Create(&caConfig, &clientCa);
+        serverIssuer = &clientCa;
+    }
+
+    [[nodiscard]] struct TlsTestCertConfig issuedCertConfig() const
+    {
+        struct TlsTestCertConfig certConfig = {};
+        certConfig.commonName         = "localhost";
+        certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+        certConfig.issuer             = &clientCa;
+        return certConfig;
+    }
+
     void createClientCa()
     {
         struct TlsTestCertConfig caConfig = {};
@@ -193,8 +216,6 @@ TEST_GROUP(OpenSslStreamIntegration)
 };
 
 // clang-format on
-
-static const char* const LOCALHOST_SANS[] = {"localhost", nullptr};
 
 TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstTrustedServerCert)
 {
@@ -476,4 +497,50 @@ TEST(OpenSslStreamIntegration, OpenFailsWhenAPinIsMalformed)
     POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
     UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
     LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED, LastCapturedError.Detail);
+}
+
+/* A collector that presents its issuer alongside its leaf is the ordinary
+   case, and puts the chain-trust failure above the leaf. */
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenAPinAuthorisesALeafPresentedWithItsIssuer)
+{
+    givenAnIssuedServerCertificate();
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(issuedCertConfig());
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+/* Waiving the chain above the leaf must not let the leaf itself through. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenALeafPresentedWithItsIssuerMatchesNoPin)
+{
+    givenAnIssuedServerCertificate();
+    pinLiteral = UNMATCHABLE_PIN;
+    installTrustAnchors = false;
+    buildScenario(issuedCertConfig());
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+/* The waiver is for a peer authorised by pin alone. Where trust anchors are
+   configured as well, the chain must still validate against them. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTrustAnchorsAreConfiguredAndTheChainDoesNotReachThem)
+{
+    givenAnIssuedServerCertificate();
+    pinLabel = "sha-256";
+    buildScenario(issuedCertConfig());
+
+    /* The trust file holds an unrelated self-signed certificate, so the anchors
+       are installed but the presented chain reaches none of them. */
+    struct TlsTestCertConfig strangerConfig = {};
+    strangerConfig.commonName = "some-other-entity.example";
+    struct TlsTestCert stranger = {};
+    TlsTestCert_Create(&strangerConfig, &stranger);
+    TlsTestCert_WritePemToFile(&stranger, caPath);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
+
+    TlsTestCert_Destroy(&stranger);
 }

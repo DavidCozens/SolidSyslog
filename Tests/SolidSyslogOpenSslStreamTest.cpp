@@ -204,6 +204,17 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         return OpenSslFake_LastVerifyCallback()(preverifyOk, OpenSslFake_StoreCtx());
     }
 
+    /* Drive the verify callback for a certificate above the leaf, with
+       `preverifyOk` as OpenSSL's verdict on it and `error` the objection it
+       raised. */
+    [[nodiscard]] int OpenThenVerifyIssuer(int preverifyOk, int error) const
+    {
+        OpenSslFake_SetStoreCtxDepth(1);
+        OpenSslFake_SetStoreCtxError(error);
+        SolidSyslogStream_Open(stream, addr);
+        return OpenSslFake_LastVerifyCallback()(preverifyOk, OpenSslFake_StoreCtx());
+    }
+
     void SendShortMessage() const
     {
         const char msg[] = "hi";
@@ -1488,4 +1499,35 @@ TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerFingerprintDidNotMatch)
         SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
         SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED
     );
+}
+
+/* Returning zero above the leaf stops OpenSSL before the leaf is reached, so a
+   collector presenting its issuer would never have its pin consulted. */
+TEST(SolidSyslogOpenSslStream, VerifyCallbackWaivesAChainTrustErrorAboveTheLeafForAPinnedPeerWithoutTrustAnchors)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(1, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
+    POINTERS_EQUAL(nullptr, OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveAboveTheLeafWhenTrustAnchorsAreInstalled)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveTheCertificatesOwnValidityAboveTheLeaf)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_CERT_HAS_EXPIRED));
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackLeavesAnIssuerToOpenSslWhenNoPeerIsPinned)
+{
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
 }

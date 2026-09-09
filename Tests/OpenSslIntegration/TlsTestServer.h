@@ -14,6 +14,7 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         const struct TlsTestCert* ServerCert; /* includes matching private key */
         const char* CipherList; /* NULL = server default */
         const struct TlsTestCert* ClientCaCert; /* NULL = no mTLS; set to require & verify client cert */
+        const struct TlsTestCert* IssuerCert; /* NULL = present the leaf alone; set to also send the issuer */
     };
 
     struct TlsTestServer* TlsTestServer_Create(const struct TlsTestServerConfig* config);

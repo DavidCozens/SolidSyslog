@@ -326,18 +326,30 @@ static inline bool OpenSslStream_RequirePeerVerification(SSL_CTX* ctx)
 }
 
 /* Called for each certificate in the chain; only the leaf, at depth 0, is
- * pinned. */
+ * pinned. Returning zero above the leaf would stop verification before the
+ * leaf was reached, so a pinned peer with no anchors waives the chain-trust
+ * errors there as well. */
 static int OpenSslStream_VerifyPeer(int preverifyOk, X509_STORE_CTX* storeCtx)
 {
+    struct SolidSyslogOpenSslStream* self = OpenSslStream_SelfFromStoreCtx(storeCtx);
     int verdict = preverifyOk;
+
     if (X509_STORE_CTX_get_error_depth(storeCtx) == 0)
     {
-        struct SolidSyslogOpenSslStream* self = OpenSslStream_SelfFromStoreCtx(storeCtx);
         if (self->Installed.FingerprintCount > 0U)
         {
             verdict = OpenSslStream_VerifyPinnedLeaf(self, preverifyOk, storeCtx);
         }
     }
+    else if (OpenSslStream_IsChainTrustWaived(self, storeCtx))
+    {
+        verdict = 1;
+    }
+    else
+    {
+        /* OpenSSL's own verdict stands. */
+    }
+
     return verdict;
 }
 
@@ -403,7 +415,7 @@ static inline bool OpenSslStream_IsChainTrustWaived(
     const X509_STORE_CTX* storeCtx
 )
 {
-    return !self->Installed.TrustAnchorsInstalled &&
+    return (self->Installed.FingerprintCount > 0U) && !self->Installed.TrustAnchorsInstalled &&
            OpenSslStream_IsChainTrustError(X509_STORE_CTX_get_error(storeCtx));
 }
 
