@@ -13,6 +13,7 @@
 #include "SolidSyslogMbedTlsPemBufferCredentialsPrivate.h"
 #include "SolidSyslogMbedTlsNullCredentials.h"
 #include "SolidSyslogPoolAllocator.h"
+#include "SolidSyslogTlsFingerprint.h"
 #include "SolidSyslogPrival.h"
 #include "SolidSyslogTunables.h"
 
@@ -77,6 +78,14 @@ static inline bool MbedTlsPemBufferCredentials_IsValidConfig(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
             SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_RNG
+        );
+    }
+    else if (!SolidSyslogTlsFingerprint_ListIsPresent(config->PeerFingerprints, config->PeerFingerprintCount))
+    {
+        MbedTlsPemBufferCredentials_Report(
+            SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
+            SOLIDSYSLOG_CAT_BAD_CONFIG,
+            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
         );
     }
     else

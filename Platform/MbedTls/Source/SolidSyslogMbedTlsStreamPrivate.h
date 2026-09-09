@@ -13,6 +13,7 @@
 #include "SolidSyslogError.h"
 #include "SolidSyslogMbedTlsStream.h"
 #include "SolidSyslogMbedTlsStreamErrors.h"
+#include "SolidSyslogTlsCredentialsInstalled.h"
 #include "SolidSyslogPrival.h"
 #include "SolidSyslogStreamDefinition.h"
 
@@ -27,6 +28,9 @@ struct SolidSyslogMbedTlsStream
      * call returned, and Close is idempotent, so the flag is what keeps both
      * true at once. */
     bool CredentialsInstalled;
+    /* What the last Install reported. Read after Install returns, by the verify
+     * callback and by the hostname step; valid only while CredentialsInstalled. */
+    struct SolidSyslogTlsCredentialsInstalled Installed;
 };
 
 void SolidSyslogMbedTlsStream_Initialise(

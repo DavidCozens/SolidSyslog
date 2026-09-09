@@ -93,6 +93,30 @@ size_t MbedTlsTestCert_WriteKeyPem(const struct MbedTlsTestCert* cert, unsigned 
     return strlen((const char*) buffer) + 1U;
 }
 
+void MbedTlsTestCert_WriteFingerprint(const struct MbedTlsTestCert* cert, const char* label, char* out, size_t capacity)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    mbedtls_md_type_t type = (strcmp(label, "sha-1") == 0) ? MBEDTLS_MD_SHA1 : MBEDTLS_MD_SHA256;
+    const mbedtls_md_info_t* info = mbedtls_md_info_from_type(type);
+    unsigned char digest[64];
+    size_t length = mbedtls_md_get_size(info);
+    mbedtls_md(info, cert->Cert.raw.p, cert->Cert.raw.len, digest);
+
+    size_t written = strlen(label);
+    if (capacity > (written + (length * 3U)))
+    {
+        memcpy(out, label, written);
+        for (size_t i = 0; i < length; i++)
+        {
+            out[written] = ':';
+            out[written + 1U] = HEX[digest[i] >> 4U];
+            out[written + 2U] = HEX[digest[i] & 0x0FU];
+            written += 3U;
+        }
+        out[written] = '\0';
+    }
+}
+
 void MbedTlsTestCert_Destroy(struct MbedTlsTestCert* cert)
 {
     mbedtls_x509_crt_free(&cert->Cert);

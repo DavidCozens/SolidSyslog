@@ -72,6 +72,8 @@ TEST_GROUP(SolidSyslogMbedTlsStreamIntegration)
     struct SolidSyslogStream* clientTransport   = nullptr;
     struct SolidSyslogStream* tlsStream         = nullptr;
     struct SolidSyslogMbedTlsHandleCredentialsConfig credsConfig = {};
+    char pinText[160] = {};
+    const char* pins[1] = {};
     struct SolidSyslogMbedTlsCredentials* credentials = nullptr;
     struct SolidSyslogAddress* addr             = nullptr;
 
@@ -206,6 +208,36 @@ TEST_GROUP(SolidSyslogMbedTlsStreamIntegration)
         cfg.Rng = &rng;
         cfg.ServerName = TEST_SERVER_HOSTNAME;
         return cfg;
+    }
+
+    /* Pin the certificate the server will present, with the named hash. */
+    void PinCertificate(const struct MbedTlsTestCert* cert, const char* label)
+    {
+        MbedTlsTestCert_WriteFingerprint(cert, label, pinText, sizeof(pinText));
+        pins[0] = pinText;
+        credsConfig.PeerFingerprints = pins;
+        credsConfig.PeerFingerprintCount = 1;
+    }
+
+    void PinLiterally(const char* pin)
+    {
+        pins[0] = pin;
+        credsConfig.PeerFingerprints = pins;
+        credsConfig.PeerFingerprintCount = 1;
+    }
+
+    /* Start a server that presents its leaf together with the CA that issued
+       it, as a correctly configured collector does. */
+    struct SolidSyslogStream* StartServerPresentingItsIssuer(const struct MbedTlsTestCert* cert)
+    {
+        struct MbedTlsTestServerConfig serverConfig = {};
+        serverConfig.ServerFd = fds[1];
+        serverConfig.ServerCert = cert;
+        serverConfig.IssuerCert = &trustedCa;
+        serverConfig.Rng = &rng;
+        server = MbedTlsTestServer_Create(&serverConfig);
+        clientTransport = SocketStream_Create(fds[0]);
+        return clientTransport;
     }
 
     struct SolidSyslogStream* CreateTlsStream(struct SolidSyslogMbedTlsStreamConfig* cfg)
@@ -423,4 +455,98 @@ TEST(SolidSyslogMbedTlsStreamIntegration, BinaryLinksAgainstRealLibMbedTls)
      * integration scaffold pulls in the real library, not a fake. */
     const unsigned int major = (mbedtls_version_get_number() >> 24) & 0xFFU;
     LONGS_EQUAL(3, major);
+}
+
+/* -------------------------------------------------------------------------
+ * Certificate fingerprint authorisation (RFC 5425 4.2.2).
+ * ------------------------------------------------------------------------- */
+
+/* A pin no certificate will ever match. */
+static const char* const UNMATCHABLE_PIN = "sha-256:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:"
+                                           "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeSucceedsWhenAPinIsTheOnlyThingAuthorisingTheServer)
+{
+    struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    credsConfig.CaChain = nullptr;
+    PinCertificate(&serverCert, "sha-256");
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheServerCertMatchesNoPin)
+{
+    struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    credsConfig.CaChain = nullptr;
+    PinLiterally(UNMATCHABLE_PIN);
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
+{
+    struct MbedTlsTestCert expiredCert = {};
+    CreateServerCertValidBetween("20200101000000", "20200102000000", &expiredCert);
+
+    struct SolidSyslogStream* transport = StartServerWithCert(&expiredCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    credsConfig.CaChain = nullptr;
+    PinCertificate(&expiredCert, "sha-256");
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+
+    MbedTlsTestCert_Destroy(&expiredCert);
+}
+
+/* Mbed TLS merges every certificate's flags into one verdict, so the chain
+   objection raised above the leaf must be cleared there too. */
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeSucceedsWhenAPinAuthorisesALeafPresentedWithItsIssuer)
+{
+    struct SolidSyslogStream* transport = StartServerPresentingItsIssuer(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    credsConfig.CaChain = nullptr;
+    PinCertificate(&serverCert, "sha-256");
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenALeafPresentedWithItsIssuerMatchesNoPin)
+{
+    struct SolidSyslogStream* transport = StartServerPresentingItsIssuer(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    credsConfig.CaChain = nullptr;
+    PinLiterally(UNMATCHABLE_PIN);
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinAgree)
+{
+    struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    PinCertificate(&serverCert, "sha-256");
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheChainIsTrustedButNoPinMatches)
+{
+    struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    PinLiterally(UNMATCHABLE_PIN);
+    tlsStream = CreateTlsStream(&config);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }

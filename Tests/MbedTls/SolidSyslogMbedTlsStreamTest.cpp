@@ -52,6 +52,15 @@ extern "C" void CaptureSslConfigFreesAtRelease(void)
     SslConfigFreesSeenAtRelease = MbedTlsFake_SslConfigFreeCallCount();
 }
 
+static const unsigned char TEST_SHA256_DIGEST[32] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+                                                     0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                                                     0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F};
+
+/* One RFC 5425 4.2.2 pin and the digest that matches it. */
+static const char* const TEST_SHA256_PINS[] = {
+    "sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F"
+};
+
 static int NoOpSleepCallCount;
 static int g_lastSleepMs;
 
@@ -106,6 +115,36 @@ TEST_GROUP(SolidSyslogMbedTlsStream)
         config.Credentials = MbedTlsCredentialsFake_Get();
         handle = SolidSyslogMbedTlsStream_Create(&config);
         addr = AddressFake_Get();
+    }
+
+    /* Pin the peer with a digest that matches the pin. Trust anchors are
+       installed unless a test clears them. */
+    static void GivenAPinnedPeer()
+    {
+        MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+        MbedTlsFake_SetDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    }
+
+    /* The same peer, authorised by its pin alone. */
+    static void GivenAPinnedPeerWithoutTrustAnchors()
+    {
+        MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+        GivenAPinnedPeer();
+    }
+
+    /* Drive the verify callback for the certificate at `depth`, starting from
+       `flags`, and return what the callback left there. The callback always
+       reports success; what it decides is in the flags. */
+    [[nodiscard]] uint32_t OpenThenVerifyAt(int depth, uint32_t flags) const
+    {
+        SolidSyslogStream_Open(handle, addr);
+        auto* verify = MbedTlsFake_LastSslConfVerifyCallback();
+        CHECK_TRUE_TEXT(verify != nullptr, "the stream registered no verify callback");
+        if (verify != nullptr)
+        {
+            LONGS_EQUAL(0, verify(handle, MbedTlsFake_Certificate(), depth, &flags));
+        }
+        return flags;
     }
 
     /* Replaces the default Null-getter handle with one that uses the fake
@@ -988,9 +1027,8 @@ TEST(SolidSyslogMbedTlsStream, OpenReportsThatNothingAuthorisesThePeer)
  * so a peer with no trust anchors behind it is still authorisable. */
 TEST(SolidSyslogMbedTlsStream, OpenConnectsWhenOnlyAFingerprintAuthorisesThePeer)
 {
-    static const char* const pins[] = {"sha-256:AA"};
     MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
-    MbedTlsCredentialsFake_SetFingerprints(pins, 1);
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
 
     CHECK_TRUE(SolidSyslogStream_Open(handle, addr));
 }
@@ -1063,4 +1101,164 @@ TEST(SolidSyslogMbedTlsStream, ASecondOpenInstallsTheCredentialsAgain)
     SolidSyslogStream_Open(handle, addr);
 
     LONGS_EQUAL(2, MbedTlsCredentialsFake_InstallCallCount());
+}
+
+/* Mbed TLS returns MBEDTLS_ERR_SSL_CA_CHAIN_REQUIRED for VERIFY_REQUIRED with
+   no CA chain, whatever a verify callback decides, so a peer authorised by pin
+   alone has to be verified optionally and judged by this stream instead. */
+TEST(SolidSyslogMbedTlsStream, OpenVerifiesOptionallyWhenOnlyAFingerprintAuthorisesThePeer)
+{
+    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    SolidSyslogStream_Open(handle, addr);
+
+    LONGS_EQUAL(MBEDTLS_SSL_VERIFY_OPTIONAL, MbedTlsFake_LastSslConfAuthmodeArg());
+}
+
+TEST(SolidSyslogMbedTlsStream, OpenFailsWhenAPinIsMalformed)
+{
+    static const char* const pins[] = {"sha-256:AA"};
+    config.ServerName = "logs.example";
+    ReCreateHandleWithUpdatedConfig();
+    MbedTlsCredentialsFake_SetFingerprints(pins, 1);
+
+    CHECK_FALSE(SolidSyslogStream_Open(handle, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_MALFORMED
+    );
+}
+
+TEST(SolidSyslogMbedTlsStream, OpenWarnsOfASha1Pin)
+{
+    static const char* const pins[] = {"sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D"};
+    config.ServerName = "logs.example";
+    ReCreateHandleWithUpdatedConfig();
+    MbedTlsCredentialsFake_SetFingerprints(pins, 1);
+
+    CHECK_TRUE(SolidSyslogStream_Open(handle, addr));
+    CHECK_ERROR_REPORTED_ONCE(
+        SOLIDSYSLOG_SEVERITY_WARNING,
+        &SolidSyslogMbedTlsStreamErrorSource,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_SHA1
+    );
+}
+
+TEST(SolidSyslogMbedTlsStream, OpenDoesNotWarnOfAMissingServerNameWhenThePeerIsPinned)
+{
+    /* Default config.ServerName is NULL - a pin names the peer instead. */
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    CHECK_TRUE(SolidSyslogStream_Open(handle, addr));
+    CALLED_FAKE(ErrorHandlerFake_Handle, NEVER);
+}
+
+/* Mbed TLS merges each certificate's flags into one verdict, so a chain-trust
+   objection raised above the leaf reaches the result even when the leaf itself
+   is cleared. A pinned peer with no anchors therefore clears it at every
+   depth. */
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackClearsAChainTrustFlagAboveTheLeafForAPinnedPeerWithoutTrustAnchors)
+{
+    GivenAPinnedPeerWithoutTrustAnchors();
+
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(1, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
+}
+
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackAcceptsALeafWhoseDigestMatchesAPin)
+{
+    GivenAPinnedPeerWithoutTrustAnchors();
+
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(0, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
+}
+
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackMarksALeafWhoseDigestMatchesNoPin)
+{
+    static const unsigned char presented[32] = {0xFF};
+    GivenAPinnedPeerWithoutTrustAnchors();
+    MbedTlsFake_SetDigest(presented, sizeof(presented));
+
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, OpenThenVerifyAt(0, 0));
+}
+
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackDoesNotClearTheCertificatesOwnValidityForAPinnedPeer)
+{
+    GivenAPinnedPeerWithoutTrustAnchors();
+
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_EXPIRED, OpenThenVerifyAt(0, MBEDTLS_X509_BADCERT_EXPIRED));
+}
+
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackLeavesAChainTrustFlagWhenTrustAnchorsAreInstalled)
+{
+    GivenAPinnedPeer();
+
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_NOT_TRUSTED, OpenThenVerifyAt(1, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
+}
+
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackDigestsWithTheAlgorithmThePinNames)
+{
+    static const char* const pins[] = {"sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D"};
+    static const unsigned char presented[20] = {0xE1, 0x2D, 0x53, 0x2B, 0x7C, 0x6B, 0x8A, 0x29, 0xA2, 0x76,
+                                                0xC8, 0x64, 0x36, 0x0B, 0x08, 0x4B, 0x7A, 0xF1, 0x9E, 0x9D};
+    MbedTlsCredentialsFake_SetFingerprints(pins, 1);
+    MbedTlsFake_SetDigest(presented, sizeof(presented));
+
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(0, 0));
+    LONGS_EQUAL(MBEDTLS_MD_SHA1, MbedTlsFake_LastMdInfoType());
+}
+
+/* The Core contract refuses a peer whose pinned algorithm cannot be computed,
+   which on this platform is a hash compiled out of Mbed TLS. */
+TEST(SolidSyslogMbedTlsStream, VerifyCallbackMarksALeafWhosePinnedAlgorithmIsUnavailable)
+{
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    MbedTlsFake_SetDigestUnavailableFor(MBEDTLS_MD_SHA256);
+
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, OpenThenVerifyAt(0, 0));
+}
+
+/* Verifying optionally means Mbed TLS completes the handshake and leaves the
+   verdict to be read, so the stream is what refuses a peer authorised by pin
+   alone whose certificate failed a check of its own. */
+TEST(SolidSyslogMbedTlsStream, OpenFailsWhenTheVerdictCarriesAFaultAfterAnOptionalVerification)
+{
+    config.ServerName = "logs.example";
+    ReCreateHandleWithUpdatedConfig();
+    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    MbedTlsFake_SetSslVerifyResult(MBEDTLS_X509_BADCERT_EXPIRED);
+
+    CHECK_FALSE(SolidSyslogStream_Open(handle, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
+        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED
+    );
+}
+
+TEST(SolidSyslogMbedTlsStream, OpenReportsThatThePeerFingerprintDidNotMatch)
+{
+    config.ServerName = "logs.example";
+    ReCreateHandleWithUpdatedConfig();
+    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    MbedTlsFake_SetSslVerifyResult(MBEDTLS_X509_BADCERT_OTHER | MBEDTLS_X509_BADCERT_NOT_TRUSTED);
+
+    CHECK_FALSE(SolidSyslogStream_Open(handle, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
+        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED
+    );
+}
+
+TEST(SolidSyslogMbedTlsStream, OpenConnectsWhenTheVerdictIsClean)
+{
+    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    MbedTlsFake_SetSslVerifyResult(0);
+
+    CHECK_TRUE(SolidSyslogStream_Open(handle, addr));
 }

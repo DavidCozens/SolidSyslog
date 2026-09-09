@@ -5,6 +5,8 @@
 #include "SolidSyslogMbedTlsStream.h"
 
 #include <mbedtls/ctr_drbg.h>
+#include <mbedtls/md.h>
+#include <mbedtls/x509_crt.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/x509.h>
 #include <stdbool.h>
@@ -21,6 +23,7 @@
 #include "SolidSyslogStream.h"
 #include "SolidSyslogStreamDefinition.h"
 #include "SolidSyslogTlsCredentialsInstalled.h"
+#include "SolidSyslogTlsFingerprint.h"
 #include "SolidSyslogTlsStreamCategories.h"
 #include "SolidSyslogTunables.h"
 
@@ -42,11 +45,24 @@ static inline bool MbedTlsStream_ApplySslConfigDefaults(struct SolidSyslogMbedTl
 static inline void MbedTlsStream_ApplyTlsPolicy(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_PeerIsAuthorisable(const struct SolidSyslogTlsCredentialsInstalled* installed);
+static inline bool MbedTlsStream_FingerprintsAreUsable(const struct SolidSyslogTlsCredentialsInstalled* installed);
+static inline void MbedTlsStream_ApplyPeerVerificationPolicy(struct SolidSyslogMbedTlsStream* self);
+static int MbedTlsStream_VerifyPeer(void* context, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
+static inline uint32_t MbedTlsStream_ChainTrustFlags(void);
+static inline bool MbedTlsStream_LeafMatchesAPin(struct SolidSyslogMbedTlsStream* self, mbedtls_x509_crt* leaf);
+static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm);
+static bool MbedTlsStream_DigestCertificate(
+    void* context,
+    enum SolidSyslogTlsHashAlgorithm algorithm,
+    uint8_t* digest,
+    size_t* length
+);
 static inline void MbedTlsStream_ReleaseCredentials(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_BindContextToConfig(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbedTlsStream* self);
 static inline void MbedTlsStream_InstallTransportCallbacks(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_PerformHandshake(struct SolidSyslogMbedTlsStream* self);
+static inline bool MbedTlsStream_PeerPassedVerification(struct SolidSyslogMbedTlsStream* self);
 static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_RefusalDetail(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_IsVerifyFailure(uint32_t verdict);
 static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict);
@@ -156,7 +172,7 @@ static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const stru
     if (ok)
     {
         MbedTlsStream_InstallTransportCallbacks(self);
-        ok = MbedTlsStream_PerformHandshake(self);
+        ok = MbedTlsStream_PerformHandshake(self) && MbedTlsStream_PeerPassedVerification(self);
     }
     if (!ok)
     {
@@ -190,7 +206,6 @@ static inline bool MbedTlsStream_ApplySslConfigDefaults(struct SolidSyslogMbedTl
  * source installs that, so this stream holds none of it. */
 static inline void MbedTlsStream_ApplyTlsPolicy(struct SolidSyslogMbedTlsStream* self)
 {
-    mbedtls_ssl_conf_authmode(&self->SslConfig, MBEDTLS_SSL_VERIFY_REQUIRED);
     /* Pin the floor at TLS 1.2 rather than inheriting MBEDTLS_SSL_PRESET_DEFAULT,
      * which can negotiate down to TLS 1.0/1.1 on permissive integrator builds.
      * The floor is stated here so downgrade resistance does not depend on the
@@ -208,10 +223,12 @@ static inline void MbedTlsStream_ApplyTlsPolicy(struct SolidSyslogMbedTlsStream*
  * which is what spares every backend a rollback path of its own. */
 static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStream* self)
 {
-    struct SolidSyslogTlsCredentialsInstalled installed = {false, NULL, 0U};
+    self->Installed.TrustAnchorsInstalled = false;
+    self->Installed.Fingerprints = NULL;
+    self->Installed.FingerprintCount = 0U;
     self->CredentialsInstalled = true;
-    bool ok = self->Config.Credentials->Install(self->Config.Credentials, &self->SslConfig, &installed);
-    if (ok && !MbedTlsStream_PeerIsAuthorisable(&installed))
+    bool ok = self->Config.Credentials->Install(self->Config.Credentials, &self->SslConfig, &self->Installed);
+    if (ok && !MbedTlsStream_PeerIsAuthorisable(&self->Installed))
     {
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
@@ -219,6 +236,14 @@ static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStr
             SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NO_PEER_AUTHORISATION
         );
         ok = false;
+    }
+    if (ok)
+    {
+        ok = MbedTlsStream_FingerprintsAreUsable(&self->Installed);
+    }
+    if (ok)
+    {
+        MbedTlsStream_ApplyPeerVerificationPolicy(self);
     }
     return ok;
 }
@@ -230,6 +255,129 @@ static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStr
 static inline bool MbedTlsStream_PeerIsAuthorisable(const struct SolidSyslogTlsCredentialsInstalled* installed)
 {
     return installed->TrustAnchorsInstalled || (installed->FingerprintCount > 0U);
+} /* Inspected before the handshake, so a pin that cannot match is reported as
+ * bad configuration rather than as a refused peer. */
+
+static inline bool MbedTlsStream_FingerprintsAreUsable(const struct SolidSyslogTlsCredentialsInstalled* installed)
+{
+    bool ok = true;
+    enum SolidSyslogTlsFingerprintListState state =
+        SolidSyslogTlsFingerprint_InspectList(installed->Fingerprints, installed->FingerprintCount);
+    if (state == SOLIDSYSLOG_TLS_FINGERPRINT_LIST_MALFORMED)
+    {
+        MbedTlsStream_Report(
+            SOLIDSYSLOG_SEVERITY_ERROR,
+            SOLIDSYSLOG_CAT_BAD_CONFIG,
+            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_MALFORMED
+        );
+        ok = false;
+    }
+    else if (state == SOLIDSYSLOG_TLS_FINGERPRINT_LIST_USES_SHA1)
+    {
+        MbedTlsStream_Report(
+            SOLIDSYSLOG_SEVERITY_WARNING,
+            SOLIDSYSLOG_CAT_BAD_CONFIG,
+            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_SHA1
+        );
+    }
+    else
+    {
+        /* Well formed, or no pins at all. */
+    }
+    return ok;
+}
+
+/* Mbed TLS fails VERIFY_REQUIRED outright when no CA chain was installed -
+ * MBEDTLS_ERR_SSL_CA_CHAIN_REQUIRED, whatever a verify callback decides - so a
+ * peer authorised by pin alone is verified optionally and judged here instead. */
+static inline void MbedTlsStream_ApplyPeerVerificationPolicy(struct SolidSyslogMbedTlsStream* self)
+{
+    int authmode = self->Installed.TrustAnchorsInstalled ? MBEDTLS_SSL_VERIFY_REQUIRED : MBEDTLS_SSL_VERIFY_OPTIONAL;
+    mbedtls_ssl_conf_authmode(&self->SslConfig, authmode);
+    mbedtls_ssl_conf_verify(&self->SslConfig, MbedTlsStream_VerifyPeer, self);
+}
+
+/* Called for each certificate in the chain, and Mbed TLS merges what each one
+ * leaves in *flags into a single verdict - so a chain-trust objection above the
+ * leaf reaches the result unless it is cleared there too. Only the leaf is
+ * pinned; the certificate's own validity is never cleared. */
+static int MbedTlsStream_VerifyPeer(void* context, mbedtls_x509_crt* crt, int depth, uint32_t* flags)
+{
+    struct SolidSyslogMbedTlsStream* self = (struct SolidSyslogMbedTlsStream*) context;
+
+    if (self->Installed.FingerprintCount > 0U)
+    {
+        if (!self->Installed.TrustAnchorsInstalled)
+        {
+            *flags &= ~MbedTlsStream_ChainTrustFlags();
+        }
+        if ((depth == 0) && !MbedTlsStream_LeafMatchesAPin(self, crt))
+        {
+            *flags |= (uint32_t) MBEDTLS_X509_BADCERT_OTHER;
+        }
+    }
+
+    return 0;
+}
+
+/* The objections a missing trust anchor alone produces. Every other flag
+ * describes the certificate itself, which a pin does not vouch for. */
+static inline uint32_t MbedTlsStream_ChainTrustFlags(void)
+{
+    return (uint32_t) MBEDTLS_X509_BADCERT_NOT_TRUSTED | (uint32_t) MBEDTLS_X509_BADCERT_MISSING;
+}
+
+static inline bool MbedTlsStream_LeafMatchesAPin(struct SolidSyslogMbedTlsStream* self, mbedtls_x509_crt* leaf)
+{
+    return SolidSyslogTlsFingerprint_Authorise(
+               self->Installed.Fingerprints,
+               self->Installed.FingerprintCount,
+               MbedTlsStream_DigestCertificate,
+               leaf
+           ) == SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED;
+}
+
+/* A hash compiled out of Mbed TLS has no md_info, which is the Core callback's
+ * "algorithm cannot be computed" and refuses the peer. */
+static bool MbedTlsStream_DigestCertificate(
+    void* context,
+    enum SolidSyslogTlsHashAlgorithm algorithm,
+    uint8_t* digest,
+    size_t* length
+)
+{
+    const mbedtls_x509_crt* leaf = (const mbedtls_x509_crt*) context;
+    const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MbedTlsStream_MdTypeFor(algorithm));
+    bool ok = info != NULL;
+
+    if (ok)
+    {
+        ok = mbedtls_md(info, leaf->raw.p, leaf->raw.len, digest) == 0;
+        *length = mbedtls_md_get_size(info);
+    }
+
+    return ok;
+}
+
+/* An algorithm this pack does not name resolves to MBEDTLS_MD_NONE, which has
+ * no md_info - so a hash added to Core and not handled here refuses the peer
+ * rather than being digested as something else. */
+static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm)
+{
+    mbedtls_md_type_t type = MBEDTLS_MD_NONE;
+    if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1)
+    {
+        type = MBEDTLS_MD_SHA1;
+    }
+    else if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA256)
+    {
+        type = MBEDTLS_MD_SHA256;
+    }
+    else
+    {
+        /* Left as MBEDTLS_MD_NONE. */
+    }
+    return type;
 }
 
 /* Answers every Install, so the integrator is always told when the credential
@@ -264,14 +412,18 @@ static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbe
     if (serverName == NULL)
     {
         /* No expected identity supplied - the handshake will accept any cert that
-         * chains to a trusted CA, so the peer is unverified. Surface it as a
-         * WARNING (still connect, preserving the IP-pinned / closed-network case)
-         * rather than swallowing the MITM-class default silently. */
-        MbedTlsStream_Report(
-            SOLIDSYSLOG_SEVERITY_WARNING,
-            SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_SERVER_NAME_NOT_SET
-        );
+         * chains to a trusted CA, so the peer is unverified unless a pin names
+         * it. Surface it as a WARNING (still connect, preserving the IP-pinned /
+         * closed-network case) rather than swallowing the MITM-class default
+         * silently. */
+        if (self->Installed.FingerprintCount == 0U)
+        {
+            MbedTlsStream_Report(
+                SOLIDSYSLOG_SEVERITY_WARNING,
+                SOLIDSYSLOG_CAT_BAD_CONFIG,
+                SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_SERVER_NAME_NOT_SET
+            );
+        }
     }
     else if (serverName[0] != '\0')
     {
@@ -348,6 +500,24 @@ static inline bool MbedTlsStream_PerformHandshake(struct SolidSyslogMbedTlsStrea
     return result;
 }
 
+/* Verifying optionally completes the handshake and leaves the verdict to be
+ * read, so a peer authorised by pin alone is refused here rather than by Mbed
+ * TLS. Where anchors are installed the handshake has already failed on a bad
+ * certificate and the verdict is clean, so this costs nothing. */
+static inline bool MbedTlsStream_PeerPassedVerification(struct SolidSyslogMbedTlsStream* self)
+{
+    bool ok = !MbedTlsStream_IsVerifyFailure(mbedtls_ssl_get_verify_result(&self->SslContext));
+    if (!ok)
+    {
+        MbedTlsStream_Report(
+            SOLIDSYSLOG_SEVERITY_ERROR,
+            SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
+            MbedTlsStream_RefusalDetail(self)
+        );
+    }
+    return ok;
+}
+
 /* The verdict outlives the failed handshake - mbedTLS records every fault it
  * found on the session being negotiated - so the refusal can name the check that
  * produced it rather than the handshake that carried it. */
@@ -378,21 +548,26 @@ static inline bool MbedTlsStream_IsVerifyFailure(uint32_t verdict)
 static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict)
 {
     enum SolidSyslogMbedTlsStreamErrors detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED;
-    if (MbedTlsStream_HasUnnamedVerifyFailure(verdict) == false)
+    if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_OTHER) != 0U)
     {
-        if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_CN_MISMATCH) != 0U)
-        {
-            detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
-        }
-        else if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_EXPIRED) != 0U)
-        {
-            detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
-        }
-        else
-        {
-            /* A named flag is set and the other two are not, so this is it. */
-            detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
-        }
+        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
+    }
+    else if (MbedTlsStream_HasUnnamedVerifyFailure(verdict))
+    {
+        /* Untrusted, which the detail already holds. */
+    }
+    else if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_CN_MISMATCH) != 0U)
+    {
+        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
+    }
+    else if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_EXPIRED) != 0U)
+    {
+        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
+    }
+    else
+    {
+        /* A named flag is set and the others are not, so this is it. */
+        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
     }
     return detail;
 }
@@ -404,7 +579,7 @@ static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyF
 static inline bool MbedTlsStream_HasUnnamedVerifyFailure(uint32_t verdict)
 {
     const uint32_t named = (uint32_t) MBEDTLS_X509_BADCERT_CN_MISMATCH | (uint32_t) MBEDTLS_X509_BADCERT_EXPIRED |
-                           (uint32_t) MBEDTLS_X509_BADCERT_FUTURE;
+                           (uint32_t) MBEDTLS_X509_BADCERT_FUTURE | (uint32_t) MBEDTLS_X509_BADCERT_OTHER;
     return (verdict & ~named) != 0U;
 }
 

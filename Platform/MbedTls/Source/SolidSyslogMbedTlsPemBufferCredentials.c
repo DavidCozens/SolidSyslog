@@ -89,8 +89,8 @@ static bool MbedTlsPemBufferCredentials_Install(
 {
     struct SolidSyslogMbedTlsPemBufferCredentials* self = MbedTlsPemBufferCredentials_SelfFromBase(base);
     installed->TrustAnchorsInstalled = false;
-    installed->Fingerprints = NULL;
-    installed->FingerprintCount = 0U;
+    installed->Fingerprints = self->Config.PeerFingerprints;
+    installed->FingerprintCount = self->Config.PeerFingerprintCount;
     bool ok = true;
     if (MbedTlsPemBufferCredentials_IsSupplied(&self->Config.CaPem))
     {

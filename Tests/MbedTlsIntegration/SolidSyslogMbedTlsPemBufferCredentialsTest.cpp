@@ -212,7 +212,47 @@ TEST(SolidSyslogMbedTlsPemBufferCredentials, InstallWiresTheParsedChainAsTheConf
     CHECK_TRUE(conf.MBEDTLS_PRIVATE(ca_chain) != nullptr);
 }
 
-TEST(SolidSyslogMbedTlsPemBufferCredentials, InstallReportsNoFingerprints)
+TEST(SolidSyslogMbedTlsPemBufferCredentials, InstallPassesTheConfiguredPeerFingerprintsThrough)
+{
+    const char* pins[] = {"sha-256:AA", "sha-256:BB"};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+    credentials = SolidSyslogMbedTlsPemBufferCredentials_Create(&config);
+
+    credentials->Install(credentials, &conf, &installed);
+
+    POINTERS_EQUAL(pins, installed.Fingerprints);
+    UNSIGNED_LONGS_EQUAL(2, installed.FingerprintCount);
+}
+
+TEST(SolidSyslogMbedTlsPemBufferCredentials, CreateWithAPinCountButNoPinListReturnsTheNullCredentials)
+{
+    config.PeerFingerprintCount = 1;
+
+    credentials = SolidSyslogMbedTlsPemBufferCredentials_Create(&config);
+
+    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
+    credentials = nullptr;
+}
+
+TEST(SolidSyslogMbedTlsPemBufferCredentials, CreateWithAMissingPinInTheListReportsBadConfig)
+{
+    const char* pins[] = {"sha-256:AA", nullptr};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+
+    credentials = SolidSyslogMbedTlsPemBufferCredentials_Create(&config);
+
+    CHECK_PEM_BUFFER_ERROR_REPORTED(
+        SOLIDSYSLOG_SEVERITY_CRITICAL,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+    );
+    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
+    credentials = nullptr;
+}
+
+TEST(SolidSyslogMbedTlsPemBufferCredentials, InstallWithoutPeerFingerprintsReportsNone)
 {
     const char* pin = "sha-256:AA";
     installed.Fingerprints = &pin;
