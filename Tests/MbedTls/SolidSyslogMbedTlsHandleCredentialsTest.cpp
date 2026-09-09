@@ -82,6 +82,14 @@ TEST_GROUP(SolidSyslogMbedTlsHandleCredentials)
 
 // clang-format on
 
+/* Names what every bad-configuration test asserts: the handle is the shared
+   Null object, which teardown must not release. */
+#define CHECK_FELL_BACK_TO_NULL_CREDENTIALS()                                 \
+    {                                                                         \
+        POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials); \
+        credentials = nullptr;                                                \
+    }
+
 TEST(SolidSyslogMbedTlsHandleCredentials, CreateReturnsAPooledHandle)
 {
     credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
@@ -93,8 +101,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithNullConfigReturnsTheNullCred
 {
     credentials = SolidSyslogMbedTlsHandleCredentials_Create(nullptr);
 
-    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
-    credentials = nullptr;
+    CHECK_FELL_BACK_TO_NULL_CREDENTIALS();
 }
 
 TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithNullConfigReportsBadConfig)
@@ -117,8 +124,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithoutAnRngReturnsTheNullCreden
 
     credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
 
-    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
-    credentials = nullptr;
+    CHECK_FELL_BACK_TO_NULL_CREDENTIALS();
 }
 
 TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithoutAnRngReportsBadConfig)
@@ -258,8 +264,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAPinCountButNoPinListReturns
 
     credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
 
-    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
-    credentials = nullptr;
+    CHECK_FELL_BACK_TO_NULL_CREDENTIALS();
 }
 
 TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAPinCountButNoPinListReportsBadConfig)
@@ -285,8 +290,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAMissingPinInTheListReturnsT
 
     credentials = SolidSyslogMbedTlsHandleCredentials_Create(&config);
 
-    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
-    credentials = nullptr;
+    CHECK_FELL_BACK_TO_NULL_CREDENTIALS();
 }
 
 TEST(SolidSyslogMbedTlsHandleCredentials, InstallPresentsTheConfiguredClientCredential)

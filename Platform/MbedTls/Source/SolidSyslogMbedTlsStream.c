@@ -50,6 +50,7 @@ static inline void MbedTlsStream_ApplyPeerVerificationPolicy(struct SolidSyslogM
 static int MbedTlsStream_VerifyPeer(void* context, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
 static inline uint32_t MbedTlsStream_ChainTrustFlags(void);
 static inline bool MbedTlsStream_LeafMatchesAPin(struct SolidSyslogMbedTlsStream* self, mbedtls_x509_crt* leaf);
+static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm);
 static bool MbedTlsStream_DigestCertificate(
     void* context,
     enum SolidSyslogTlsHashAlgorithm algorithm,
@@ -247,8 +248,16 @@ static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStr
     return ok;
 }
 
-/* Inspected before the handshake, so a pin that cannot match is reported as
+/* A peer is authorised by a chain to trust anchors or by a pinned certificate
+ * fingerprint, and RFC 5425 4.2.1 makes the second sufficient on its own. With
+ * neither, there is nothing to check the peer against, so the connection stops
+ * rather than reaching a peer this stream cannot identify. */
+static inline bool MbedTlsStream_PeerIsAuthorisable(const struct SolidSyslogTlsCredentialsInstalled* installed)
+{
+    return installed->TrustAnchorsInstalled || (installed->FingerprintCount > 0U);
+} /* Inspected before the handshake, so a pin that cannot match is reported as
  * bad configuration rather than as a refused peer. */
+
 static inline bool MbedTlsStream_FingerprintsAreUsable(const struct SolidSyslogTlsCredentialsInstalled* installed)
 {
     bool ok = true;
@@ -328,6 +337,27 @@ static inline bool MbedTlsStream_LeafMatchesAPin(struct SolidSyslogMbedTlsStream
            ) == SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED;
 }
 
+/* An algorithm this pack does not name resolves to MBEDTLS_MD_NONE, which has
+ * no md_info - so a hash added to Core and not handled here refuses the peer
+ * rather than being digested as something else. */
+static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm)
+{
+    mbedtls_md_type_t type = MBEDTLS_MD_NONE;
+    if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1)
+    {
+        type = MBEDTLS_MD_SHA1;
+    }
+    else if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA256)
+    {
+        type = MBEDTLS_MD_SHA256;
+    }
+    else
+    {
+        /* Left as MBEDTLS_MD_NONE. */
+    }
+    return type;
+}
+
 /* A hash compiled out of Mbed TLS has no md_info, which is the Core callback's
  * "algorithm cannot be computed" and refuses the peer. */
 static bool MbedTlsStream_DigestCertificate(
@@ -338,8 +368,7 @@ static bool MbedTlsStream_DigestCertificate(
 )
 {
     const mbedtls_x509_crt* leaf = (const mbedtls_x509_crt*) context;
-    mbedtls_md_type_t type = (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1) ? MBEDTLS_MD_SHA1 : MBEDTLS_MD_SHA256;
-    const mbedtls_md_info_t* info = mbedtls_md_info_from_type(type);
+    const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MbedTlsStream_MdTypeFor(algorithm));
     bool ok = info != NULL;
 
     if (ok)
@@ -349,15 +378,6 @@ static bool MbedTlsStream_DigestCertificate(
     }
 
     return ok;
-}
-
-/* A peer is authorised by a chain to trust anchors or by a pinned certificate
- * fingerprint, and RFC 5425 4.2.1 makes the second sufficient on its own. With
- * neither, there is nothing to check the peer against, so the connection stops
- * rather than reaching a peer this stream cannot identify. */
-static inline bool MbedTlsStream_PeerIsAuthorisable(const struct SolidSyslogTlsCredentialsInstalled* installed)
-{
-    return installed->TrustAnchorsInstalled || (installed->FingerprintCount > 0U);
 }
 
 /* Answers every Install, so the integrator is always told when the credential

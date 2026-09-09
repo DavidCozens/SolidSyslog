@@ -91,11 +91,6 @@ void MbedTlsTestServer_Destroy(struct MbedTlsTestServer* self)
 {
     if (self != NULL)
     {
-        if (self->ChainedLeaf != NULL)
-        {
-            self->ChainedLeaf->next = NULL;
-            self->ChainedLeaf = NULL;
-        }
         if (!self->ThreadJoined)
         {
             /* Worker might still be blocked in recv. Shutting the fd
@@ -106,6 +101,13 @@ void MbedTlsTestServer_Destroy(struct MbedTlsTestServer* self)
             }
             pthread_join(self->Thread, NULL);
             self->ThreadJoined = true;
+        }
+        /* Only once the worker has stopped: it reads the chain through this
+           link while it is presenting the certificate. */
+        if (self->ChainedLeaf != NULL)
+        {
+            self->ChainedLeaf->next = NULL;
+            self->ChainedLeaf = NULL;
         }
         mbedtls_ssl_free(&self->SslContext);
         mbedtls_ssl_config_free(&self->SslConfig);

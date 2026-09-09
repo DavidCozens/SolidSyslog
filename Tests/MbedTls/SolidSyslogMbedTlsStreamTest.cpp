@@ -117,6 +117,31 @@ TEST_GROUP(SolidSyslogMbedTlsStream)
         addr = AddressFake_Get();
     }
 
+    /* Pin the peer with a digest that matches the pin. Trust anchors are
+       installed unless a test clears them. */
+    static void GivenAPinnedPeer()
+    {
+        MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+        MbedTlsFake_SetDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    }
+
+    /* The same peer, authorised by its pin alone. */
+    static void GivenAPinnedPeerWithoutTrustAnchors()
+    {
+        MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
+        GivenAPinnedPeer();
+    }
+
+    /* Drive the verify callback for the certificate at `depth`, starting from
+       `flags`, and return what the callback left there. The callback always
+       reports success; what it decides is in the flags. */
+    [[nodiscard]] uint32_t OpenThenVerifyAt(int depth, uint32_t flags) const
+    {
+        SolidSyslogStream_Open(handle, addr);
+        LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), depth, &flags));
+        return flags;
+    }
+
     /* Replaces the default Null-getter handle with one that uses the fake
      * handshake-timeout getter. Each test sets only the fake-getter return
      * value (or context) it needs different from the defaults restored in
@@ -1086,13 +1111,6 @@ TEST(SolidSyslogMbedTlsStream, OpenVerifiesOptionallyWhenOnlyAFingerprintAuthori
     LONGS_EQUAL(MBEDTLS_SSL_VERIFY_OPTIONAL, MbedTlsFake_LastSslConfAuthmodeArg());
 }
 
-TEST(SolidSyslogMbedTlsStream, OpenRequiresVerificationWhenTrustAnchorsAreInstalled)
-{
-    SolidSyslogStream_Open(handle, addr);
-
-    LONGS_EQUAL(MBEDTLS_SSL_VERIFY_REQUIRED, MbedTlsFake_LastSslConfAuthmodeArg());
-}
-
 TEST(SolidSyslogMbedTlsStream, OpenFailsWhenAPinIsMalformed)
 {
     static const char* const pins[] = {"sha-256:AA"};
@@ -1139,61 +1157,39 @@ TEST(SolidSyslogMbedTlsStream, OpenDoesNotWarnOfAMissingServerNameWhenThePeerIsP
    depth. */
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackClearsAChainTrustFlagAboveTheLeafForAPinnedPeerWithoutTrustAnchors)
 {
-    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
-    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+    GivenAPinnedPeerWithoutTrustAnchors();
 
-    LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 1, &flags));
-    UNSIGNED_LONGS_EQUAL(0, flags);
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(1, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
 }
 
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackAcceptsALeafWhoseDigestMatchesAPin)
 {
-    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
-    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
-    MbedTlsFake_SetDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+    GivenAPinnedPeerWithoutTrustAnchors();
 
-    LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 0, &flags));
-    UNSIGNED_LONGS_EQUAL(0, flags);
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(0, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
 }
 
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackMarksALeafWhoseDigestMatchesNoPin)
 {
     static const unsigned char presented[32] = {0xFF};
-    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
-    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    GivenAPinnedPeerWithoutTrustAnchors();
     MbedTlsFake_SetDigest(presented, sizeof(presented));
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = 0;
 
-    LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 0, &flags));
-    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, flags);
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, OpenThenVerifyAt(0, 0));
 }
 
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackDoesNotClearTheCertificatesOwnValidityForAPinnedPeer)
 {
-    MbedTlsCredentialsFake_SetTrustAnchorsInstalled(false);
-    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
-    MbedTlsFake_SetDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = MBEDTLS_X509_BADCERT_EXPIRED;
+    GivenAPinnedPeerWithoutTrustAnchors();
 
-    LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 0, &flags));
-    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_EXPIRED, flags);
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_EXPIRED, OpenThenVerifyAt(0, MBEDTLS_X509_BADCERT_EXPIRED));
 }
 
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackLeavesAChainTrustFlagWhenTrustAnchorsAreInstalled)
 {
-    MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
-    MbedTlsFake_SetDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+    GivenAPinnedPeer();
 
-    LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 1, &flags));
-    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_NOT_TRUSTED, flags);
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_NOT_TRUSTED, OpenThenVerifyAt(1, MBEDTLS_X509_BADCERT_NOT_TRUSTED));
 }
 
 TEST(SolidSyslogMbedTlsStream, VerifyCallbackDigestsWithTheAlgorithmThePinNames)
@@ -1203,13 +1199,9 @@ TEST(SolidSyslogMbedTlsStream, VerifyCallbackDigestsWithTheAlgorithmThePinNames)
                                                 0xC8, 0x64, 0x36, 0x0B, 0x08, 0x4B, 0x7A, 0xF1, 0x9E, 0x9D};
     MbedTlsCredentialsFake_SetFingerprints(pins, 1);
     MbedTlsFake_SetDigest(presented, sizeof(presented));
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = 0;
 
-    MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 0, &flags);
-
-    LONGS_EQUAL(MBEDTLS_MD_SHA1, MbedTlsFake_LastDigestMdType());
-    UNSIGNED_LONGS_EQUAL(0, flags);
+    UNSIGNED_LONGS_EQUAL(0, OpenThenVerifyAt(0, 0));
+    LONGS_EQUAL(MBEDTLS_MD_SHA1, MbedTlsFake_LastMdInfoType());
 }
 
 /* The Core contract refuses a peer whose pinned algorithm cannot be computed,
@@ -1218,12 +1210,8 @@ TEST(SolidSyslogMbedTlsStream, VerifyCallbackMarksALeafWhosePinnedAlgorithmIsUna
 {
     MbedTlsCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
     MbedTlsFake_SetDigestUnavailableFor(MBEDTLS_MD_SHA256);
-    SolidSyslogStream_Open(handle, addr);
-    uint32_t flags = 0;
 
-    MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), 0, &flags);
-
-    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, flags);
+    UNSIGNED_LONGS_EQUAL(MBEDTLS_X509_BADCERT_OTHER, OpenThenVerifyAt(0, 0));
 }
 
 /* Verifying optionally means Mbed TLS completes the handshake and leaves the

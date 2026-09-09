@@ -67,6 +67,7 @@ static inline int OpenSslStream_VerifyPinnedLeaf(
     X509_STORE_CTX* storeCtx
 );
 static inline bool OpenSslStream_LeafMatchesAPin(struct SolidSyslogOpenSslStream* self, X509_STORE_CTX* storeCtx);
+static inline const EVP_MD* OpenSslStream_DigestFor(enum SolidSyslogTlsHashAlgorithm algorithm);
 static bool OpenSslStream_DigestCertificate(
     void* context,
     enum SolidSyslogTlsHashAlgorithm algorithm,
@@ -395,6 +396,27 @@ static inline bool OpenSslStream_LeafMatchesAPin(struct SolidSyslogOpenSslStream
            ) == SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED;
 }
 
+/* An algorithm this pack does not name has no digest, so a hash added to Core
+ * and not handled here refuses the peer rather than being digested as
+ * something else. */
+static inline const EVP_MD* OpenSslStream_DigestFor(enum SolidSyslogTlsHashAlgorithm algorithm)
+{
+    const EVP_MD* md = NULL;
+    if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1)
+    {
+        md = EVP_sha1();
+    }
+    else if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA256)
+    {
+        md = EVP_sha256();
+    }
+    else
+    {
+        /* Left as NULL. */
+    }
+    return md;
+}
+
 static bool OpenSslStream_DigestCertificate(
     void* context,
     enum SolidSyslogTlsHashAlgorithm algorithm,
@@ -403,9 +425,9 @@ static bool OpenSslStream_DigestCertificate(
 )
 {
     const X509* leaf = (const X509*) context;
-    const EVP_MD* md = (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1) ? EVP_sha1() : EVP_sha256();
+    const EVP_MD* md = OpenSslStream_DigestFor(algorithm);
     unsigned int written = 0U;
-    bool ok = X509_digest(leaf, md, digest, &written) == 1;
+    bool ok = (md != NULL) && (X509_digest(leaf, md, digest, &written) == 1);
     *length = (size_t) written;
     return ok;
 }

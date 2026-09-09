@@ -167,6 +167,11 @@ bool SolidSyslogTlsFingerprint_ListIsPresent(const char* const * fingerprints, s
     return present;
 }
 
+static inline bool TlsFingerprint_ListIsReadable(const char* const * fingerprints, size_t count)
+{
+    return (count == 0U) || (fingerprints != NULL);
+}
+
 enum SolidSyslogTlsFingerprintListState SolidSyslogTlsFingerprint_InspectList(
     const char* const * fingerprints,
     size_t count
@@ -227,11 +232,6 @@ enum SolidSyslogTlsAuthorisation SolidSyslogTlsFingerprint_Authorise(
     }
 
     return verdict;
-}
-
-static inline bool TlsFingerprint_ListIsReadable(const char* const * fingerprints, size_t count)
-{
-    return (count == 0U) || (fingerprints != NULL);
 }
 
 static inline enum SolidSyslogTlsAuthorisation TlsFingerprint_AuthoriseOne(

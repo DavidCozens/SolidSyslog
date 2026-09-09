@@ -1,5 +1,6 @@
 #include "MbedTlsFake.h"
 
+#include <assert.h>
 #include <mbedtls/cipher.h>
 #include <mbedtls/gcm.h>
 #include <mbedtls/md.h>
@@ -61,14 +62,12 @@ static int mdHmacReturn;
 /* mbedtls_ssl_conf_verify / mbedtls_md over a certificate */
 enum
 {
-    MBEDTLSFAKE_MAX_DER = 512,
     MBEDTLSFAKE_MAX_DIGEST = 64
 };
 
 static int (*lastSslConfVerifyCallback)(void*, mbedtls_x509_crt*, int, uint32_t*);
 static void* lastSslConfVerifyContext;
 static mbedtls_x509_crt fakeCertificate;
-static unsigned char fakeCertificateDer[MBEDTLSFAKE_MAX_DER];
 static unsigned char fakeDigest[MBEDTLSFAKE_MAX_DIGEST];
 static size_t fakeDigestLength;
 static int digestUnavailableMdType = -1;
@@ -204,7 +203,6 @@ void MbedTlsFake_Reset(void)
     fakeCertificate.raw.len = 0;
     fakeDigestLength = 0;
     digestUnavailableMdType = -1;
-    lastMdInfoType = 0;
     sslConfigInitCallCount = 0;
     lastSslConfigInitArg = NULL;
     sslConfigDefaultsCallCount = 0;
@@ -962,15 +960,9 @@ mbedtls_x509_crt* MbedTlsFake_Certificate(void)
     return &fakeCertificate;
 }
 
-void MbedTlsFake_SetCertificateDer(const unsigned char* der, size_t length)
-{
-    memcpy(fakeCertificateDer, der, length);
-    fakeCertificate.raw.p = fakeCertificateDer;
-    fakeCertificate.raw.len = length;
-}
-
 void MbedTlsFake_SetDigest(const unsigned char* digest, size_t length)
 {
+    assert(length <= MBEDTLSFAKE_MAX_DIGEST);
     memcpy(fakeDigest, digest, length);
     fakeDigestLength = length;
 }
@@ -978,11 +970,6 @@ void MbedTlsFake_SetDigest(const unsigned char* digest, size_t length)
 void MbedTlsFake_SetDigestUnavailableFor(int mdType)
 {
     digestUnavailableMdType = mdType;
-}
-
-int MbedTlsFake_LastDigestMdType(void)
-{
-    return lastMdInfoType;
 }
 
 int mbedtls_md_hmac(

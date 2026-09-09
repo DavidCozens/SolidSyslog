@@ -84,19 +84,18 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     int MbedTlsFake_LastSslConfAuthmodeArg(void);
 
     /* mbedtls_ssl_conf_verify - the callback the stream registers, and one
-     * certificate to drive it with. The certificate's DER is what a digest is
-     * taken over, so a test sets those bytes and computes the pin from them. */
+     * certificate to pass it. The digest is whatever MbedTlsFake_SetDigest
+     * configured, so the certificate carries no bytes of its own. */
     int (*MbedTlsFake_LastSslConfVerifyCallback(void))(void*, struct mbedtls_x509_crt*, int, uint32_t*);
     void* MbedTlsFake_LastSslConfVerifyContext(void);
     struct mbedtls_x509_crt* MbedTlsFake_Certificate(void);
-    void MbedTlsFake_SetCertificateDer(const unsigned char* der, size_t length);
 
     /* mbedtls_md - the digest the stream takes over a certificate. Reports the
      * bytes a test configures, and NULL from mbedtls_md_info_from_type stands
-     * for a hash compiled out of the library. */
+     * for a hash compiled out of the library. Which algorithm was asked for
+     * reads back through MbedTlsFake_LastMdInfoType. */
     void MbedTlsFake_SetDigest(const unsigned char* digest, size_t length);
     void MbedTlsFake_SetDigestUnavailableFor(int mdType);
-    int MbedTlsFake_LastDigestMdType(void);
 
     /* mbedtls_ssl_conf_min_tls_version is a static-inline setter in <mbedtls/ssl.h>
      * (it writes conf->min_tls_version directly), so it cannot be intercepted at

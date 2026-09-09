@@ -248,6 +248,7 @@ TEST(SolidSyslogMbedTlsPemBufferCredentials, CreateWithAMissingPinInTheListRepor
         SOLIDSYSLOG_CAT_BAD_CONFIG,
         SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
     );
+    POINTERS_EQUAL(SolidSyslogMbedTlsNullCredentials_Get(), credentials);
     credentials = nullptr;
 }
 
