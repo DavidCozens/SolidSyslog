@@ -133,17 +133,19 @@ static inline bool TlsFingerprint_ParseHexPair(const char* text, uint8_t* value)
 
 static inline bool TlsFingerprint_ParseHexDigit(char digit, uint8_t* value)
 {
-    static const char TLS_FINGERPRINT_HEX_DIGITS[] = "0123456789ABCDEF";
-    size_t count = sizeof(TLS_FINGERPRINT_HEX_DIGITS) - 1U;
-    bool parsed = false;
+    bool parsed = true;
 
-    for (size_t i = 0; (i < count) && !parsed; i++)
+    if ((digit >= '0') && (digit <= '9'))
     {
-        if (digit == TLS_FINGERPRINT_HEX_DIGITS[i])
-        {
-            *value = (uint8_t) i;
-            parsed = true;
-        }
+        *value = (uint8_t) ((uint8_t) digit - (uint8_t) '0');
+    }
+    else if ((digit >= 'A') && (digit <= 'F'))
+    {
+        *value = (uint8_t) (((uint8_t) digit - (uint8_t) 'A') + 10U);
+    }
+    else
+    {
+        parsed = false;
     }
 
     return parsed;

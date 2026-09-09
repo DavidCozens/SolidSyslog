@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstring>
 
 #include "SolidSyslogTlsFingerprint.h"
@@ -40,6 +41,56 @@ TEST(SolidSyslogTlsFingerprint, ParsesASha256Fingerprint)
     BYTES_EQUAL(0x00, fingerprint.Digest[0]);
     BYTES_EQUAL(0xFF, fingerprint.Digest[15]);
     BYTES_EQUAL(0xF0, fingerprint.Digest[31]);
+}
+
+/* Every hex digit, in the high nibble and then in the low, so no digit's
+   conversion rests on another's. */
+TEST(SolidSyslogTlsFingerprint, ParsesEveryHexDigitInTheHighNibble)
+{
+    struct SolidSyslogTlsFingerprint fingerprint = {};
+    static const uint8_t expected[32] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45,
+                                         0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB,
+                                         0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+
+    CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
+        "sha-256:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:"
+        "01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF",
+        &fingerprint
+    ));
+
+    MEMCMP_EQUAL(expected, fingerprint.Digest, sizeof(expected));
+}
+
+TEST(SolidSyslogTlsFingerprint, ParsesEveryHexDigitInTheLowNibble)
+{
+    struct SolidSyslogTlsFingerprint fingerprint = {};
+    static const uint8_t expected[32] = {0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE, 0x10, 0x32, 0x54,
+                                         0x76, 0x98, 0xBA, 0xDC, 0xFE, 0x10, 0x32, 0x54, 0x76, 0x98, 0xBA,
+                                         0xDC, 0xFE, 0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE};
+
+    CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
+        "sha-256:10:32:54:76:98:BA:DC:FE:10:32:54:76:98:BA:DC:FE:"
+        "10:32:54:76:98:BA:DC:FE:10:32:54:76:98:BA:DC:FE",
+        &fingerprint
+    ));
+
+    MEMCMP_EQUAL(expected, fingerprint.Digest, sizeof(expected));
+}
+
+/* The characters either side of each accepted run, where an off-by-one in a
+   range check would land. */
+TEST(SolidSyslogTlsFingerprint, RejectsTheCharactersAdjacentToTheHexRanges)
+{
+    static const char* const adjacent[] = {"/", ":", "@", "G", "`", "g"};
+
+    for (const char* character : adjacent)
+    {
+        struct SolidSyslogTlsFingerprint fingerprint = {};
+        char text[80] = "sha-1:XX:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D";
+        text[6] = character[0];
+
+        CHECK_FALSE_TEXT(SolidSyslogTlsFingerprint_Parse(text, &fingerprint), character);
+    }
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsAnUnknownHashLabel)
