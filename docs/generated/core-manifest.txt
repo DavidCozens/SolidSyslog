@@ -42,6 +42,7 @@ Core/Source/SolidSyslogNullBuffer.c
 Core/Source/SolidSyslogNullBlockDevice.c
 Core/Source/SolidSyslogNullSecurityPolicy.c
 Core/Source/SolidSyslogCrc16.c
+Core/Source/SolidSyslogTlsFingerprint.c
 Core/Source/SolidSyslogCrc16Policy.c
 Core/Source/SolidSyslogStream.c
 Core/Source/SolidSyslogNullStream.c

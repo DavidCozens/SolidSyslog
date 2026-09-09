@@ -13,6 +13,7 @@ struct ssl_st;
 struct ssl_method_st;
 struct bio_st;
 struct bio_method_st;
+struct x509_store_ctx_st;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
@@ -60,6 +61,26 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
 
     struct ssl_ctx_st* OpenSslFake_LastSetVerifyCtxArg(void);
     int OpenSslFake_LastVerifyMode(void);
+    int (*OpenSslFake_LastVerifyCallback(void))(int, struct x509_store_ctx_st*);
+
+    /* SSL_set_ex_data / SSL_get_ex_data - one slot, which is all
+     * SSL_set_app_data uses. */
+    int OpenSslFake_LastSslExDataIndex(void);
+    void* OpenSslFake_LastSslExData(void);
+    void OpenSslFake_SetSslExDataFails(bool fails);
+
+    /* One X509_STORE_CTX for driving a captured verify callback. Its ex_data
+     * at the SSL index resolves to the SSL the fake last handed out, as
+     * OpenSSL's own does mid-handshake; depth, error and the leaf's digest
+     * are what a test sets. X509_digest reports the configured bytes, or
+     * fails when told to. */
+    struct x509_store_ctx_st* OpenSslFake_StoreCtx(void);
+    void OpenSslFake_SetStoreCtxDepth(int depth);
+    void OpenSslFake_SetStoreCtxError(int error);
+    int OpenSslFake_StoreCtxError(void);
+    void OpenSslFake_SetCertDigest(const uint8_t* digest, size_t length);
+    void OpenSslFake_SetDigestFails(bool fails);
+    const void* OpenSslFake_LastDigestMd(void); /* compare against EVP_sha1() / EVP_sha256() */
 
     /* SSL_CTX_ctrl (SET_MIN_PROTO_VERSION path) */
     struct ssl_ctx_st* OpenSslFake_LastSslCtxCtrlCtxArg(void);

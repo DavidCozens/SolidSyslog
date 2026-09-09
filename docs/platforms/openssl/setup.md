@@ -55,6 +55,18 @@ credentialsConfig.CaBundlePath = "/etc/ssl/collector-ca.pem";
 credentialsConfig.ClientCertChainPath = "/etc/ssl/device-chain.pem";
 credentialsConfig.ClientKeyPath       = "/etc/ssl/device-key.pem";
 
+/* To authorise the collector by its certificate rather than by a chain, pin
+   it. Any one pin in the list authorises, which is how a fleet crosses a
+   renewal; the array and the strings are yours and must outlive the
+   credentials. A pin alone is enough, so CaBundlePath may be left NULL - and
+   where both are set, both must be satisfied. */
+static const char* const pins[] = {
+    "sha-256:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:"
+    "7A:F1:9E:9D:0C:44:1B:23:5D:87:6E:A0:31:F5:C2:98"
+};
+credentialsConfig.PeerFingerprints     = pins;
+credentialsConfig.PeerFingerprintCount = 1;
+
 struct SolidSyslogOpenSslCredentials* credentials =
     SolidSyslogOpenSslPemFileCredentials_Create(&credentialsConfig);
 ```
@@ -107,3 +119,9 @@ Failures report through the error handler rather than silently. Install one
 before you start, and read [error severity](../../error-severity.md) for what
 each level is telling you - a `CRITICAL` at create time means the stream fell
 back to the Null object, and nothing will be delivered.
+
+A pin is read when the connection is made, so one that is not in the RFC 5425
+form is reported on the first connect and not before. `openssl x509 -noout
+-fingerprint -sha256 -in collector.pem` prints the digest in the byte form the
+pin wants; the label it needs is `sha-256:`, hyphenated, in place of what
+OpenSSL prints. Hex digits may be upper or lower case.

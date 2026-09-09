@@ -91,13 +91,15 @@ different tools: a fingerprint pins one certificate, which suits a closed networ
 with no PKI, where operating a CA is more than the deployment needs.
 
 The accepted form is the one RFC 5425 §4.2.2 defines: an ASCII hash label, a
-colon, then the hash of the DER-encoded certificate as colon-separated uppercase
-hex pairs. Labels come from the IANA
+colon, then the hash of the DER-encoded certificate as colon-separated hex
+pairs. §4.2.2 publishes those pairs in uppercase, but a `Stream` accepts either
+case and a mixture of the two: a pin reaches a device through an engineer
+transcribing it, and case carries no meaning. Labels come from the IANA
 [Hash Function Textual Names](https://www.iana.org/assignments/hash-function-text-names/hash-function-text-names.xhtml)
 registry and are hyphenated, so `sha-256` and `sha-1` rather than `sha256` or
 `sha1`. A `Stream` accepts both of those algorithms. §4.2.2 makes SHA-1 mandatory
 to support; `sha-256` is the one to configure where the collector offers a
-choice.
+choice, and a `sha-1` pin is reported on every connection that uses one.
 
 A **list** of fingerprints is accepted, and any one of them authorises the peer.
 A fingerprint covers the whole DER certificate, so it changes every time the

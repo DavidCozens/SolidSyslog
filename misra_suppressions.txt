@@ -62,7 +62,7 @@ misra-c2012-11.3:Platform/MbedTls/Source/SolidSyslogMbedTlsAesGcmPolicy.c:85
 misra-c2012-11.3:Platform/OpenSsl/Source/SolidSyslogOpenSslAesGcmPolicy.c:89
 misra-c2012-11.3:Platform/OpenSsl/Source/SolidSyslogOpenSslHmacSha256Policy.c:84
 misra-c2012-11.3:Platform/OpenSsl/Source/SolidSyslogOpenSslPemFileCredentials.c:58
-misra-c2012-11.3:Platform/OpenSsl/Source/SolidSyslogOpenSslStream.c:100
+misra-c2012-11.3:Platform/OpenSsl/Source/SolidSyslogOpenSslStream.c:123
 misra-c2012-11.3:Platform/Posix/Source/SolidSyslogPosixAddress.c:18
 misra-c2012-11.3:Platform/Posix/Source/SolidSyslogPosixAddressPrivate.h:27
 misra-c2012-11.3:Platform/Posix/Source/SolidSyslogPosixAddressPrivate.h:32
@@ -141,8 +141,10 @@ misra-c2012-2.4:Core/Source/SolidSyslogRecordStore.c:18
 misra-c2012-2.4:Core/Source/SolidSyslogStreamSender.c:29
 misra-c2012-2.4:Core/Interface/SolidSyslogUdpPayload.h:21
 misra-c2012-5.7:Core/Interface/SolidSyslogUdpPayload.h:25
+misra-c2012-5.7:Core/Interface/SolidSyslogTlsFingerprint.h:32
 misra-c2012-5.7:Core/Source/SolidSyslogStreamSender.c:29
 misra-c2012-5.7:Core/Source/SolidSyslogUdpPayload.c:9
+misra-c2012-5.7:Core/Source/SolidSyslogTlsFingerprint.c:8
 misra-c2012-5.7:Platform/PlusTcp/Source/SolidSyslogPlusTcpResolver.c:29
 misra-c2012-5.7:Platform/PlusTcp/Source/SolidSyslogPlusTcpTcpStream.c:40
 misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsStream.c:30
@@ -150,7 +152,7 @@ misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsHmacSha256Policy.c:25
 misra-c2012-5.7:Platform/MbedTls/Source/SolidSyslogMbedTlsAesGcmPolicy.c:28
 misra-c2012-5.7:Platform/OpenSsl/Source/SolidSyslogOpenSslAesGcmPolicy.c:26
 misra-c2012-5.7:Platform/OpenSsl/Source/SolidSyslogOpenSslHmacSha256Policy.c:26
-misra-c2012-5.7:Platform/OpenSsl/Source/SolidSyslogOpenSslStream.c:32
+misra-c2012-5.7:Platform/OpenSsl/Source/SolidSyslogOpenSslStream.c:35
 misra-c2012-5.7:Platform/Posix/Source/SolidSyslogPosixResolver.c:28
 misra-c2012-5.7:Platform/Posix/Source/SolidSyslogPosixDatagram.c:29
 misra-c2012-5.7:Platform/Posix/Source/SolidSyslogPosixSleep.c:10

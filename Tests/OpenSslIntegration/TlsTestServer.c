@@ -25,6 +25,11 @@ struct TlsTestServer* TlsTestServer_Create(const struct TlsTestServerConfig* con
     self->Ctx = SSL_CTX_new(TLS_server_method());
     SSL_CTX_use_certificate(self->Ctx, config->ServerCert->cert);
     SSL_CTX_use_PrivateKey(self->Ctx, config->ServerCert->key);
+    if (config->IssuerCert != NULL)
+    {
+        X509_up_ref(config->IssuerCert->cert);
+        SSL_CTX_add_extra_chain_cert(self->Ctx, config->IssuerCert->cert);
+    }
     if (config->CipherList != NULL)
     {
         SSL_CTX_set_cipher_list(self->Ctx, config->CipherList);

@@ -13,14 +13,16 @@
 #ifndef SOLIDSYSLOGOPENSSLPEMFILECREDENTIALS_H
 #define SOLIDSYSLOGOPENSSLPEMFILECREDENTIALS_H
 
+#include <stddef.h>
+
 #include "SolidSyslogExternC.h"
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
     struct SolidSyslogOpenSslCredentials;
 
-    /** Where this backend's material lives. Every member is a path the caller
-     *  owns and must keep valid for the lifetime of the credentials. */
+    /** Where this backend's material lives. Every member is the caller's and
+     *  must stay valid for the lifetime of the credentials. */
     struct SolidSyslogOpenSslPemFileCredentialsConfig
     {
         /** PEM file of trust anchors the peer certificate must chain to; NULL
@@ -34,6 +36,19 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         /** PEM private key matching ClientCertChainPath; NULL means no client
          *  credential. */
         const char* ClientKeyPath;
+        /** Fingerprints of certificates the peer may present, any one of which
+         *  authorises it. Each is the RFC 5425 §4.2.2 form: the IANA hash
+         *  name, a colon, then the digest of the DER certificate as
+         *  colon-separated hexadecimal bytes in either case, e.g.
+         *  `sha-256:E1:2D:...`. `sha-256` and `sha-1` are accepted; a `sha-1`
+         *  pin is reported on every connection. A pin in any other form is
+         *  reported when the stream opens and that attempt fails. NULL with a
+         *  count of zero pins no peer; a count with no list behind it, or a
+         *  NULL pin in one, is reported at Create, which returns the Null
+         *  credentials. The array and the strings must outlive the
+         *  credentials. */
+        const char* const * PeerFingerprints;
+        size_t PeerFingerprintCount;
     };
 
     /** Draw a credentials instance from the pool. A NULL config is reported and

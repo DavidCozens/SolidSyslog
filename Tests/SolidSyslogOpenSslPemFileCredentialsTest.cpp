@@ -191,7 +191,20 @@ TEST(SolidSyslogOpenSslPemFileCredentials, InstallWithoutATrustAnchorPathReports
     CHECK_FALSE(installed.TrustAnchorsInstalled);
 }
 
-TEST(SolidSyslogOpenSslPemFileCredentials, InstallReportsNoFingerprints)
+TEST(SolidSyslogOpenSslPemFileCredentials, InstallPassesTheConfiguredPeerFingerprintsThrough)
+{
+    const char* pins[] = {"sha-256:AA", "sha-256:BB"};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+    credentials = SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    credentials->Install(credentials, ctx, &installed);
+
+    POINTERS_EQUAL(pins, installed.Fingerprints);
+    UNSIGNED_LONGS_EQUAL(2, installed.FingerprintCount);
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, InstallWithoutPeerFingerprintsReportsNone)
 {
     const char* pin = "sha-256:AA";
     installed.Fingerprints = &pin;
@@ -314,4 +327,58 @@ TEST(SolidSyslogOpenSslPemFileCredentials, ReleaseDoesNotCrash)
     credentials->Install(credentials, ctx, &installed);
 
     credentials->Release(credentials);
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, CreateWithAPinCountButNoPinListReturnsTheNullCredentials)
+{
+    config.PeerFingerprintCount = 1;
+
+    credentials = SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    POINTERS_EQUAL(SolidSyslogOpenSslNullCredentials_Get(), credentials);
+    credentials = nullptr;
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, CreateWithAPinCountButNoPinListReportsBadConfig)
+{
+    ErrorHandlerFake_Install(nullptr);
+    config.PeerFingerprintCount = 1;
+
+    SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    CHECK_ERROR_REPORTED_ONCE(
+        SOLIDSYSLOG_SEVERITY_CRITICAL,
+        &SolidSyslogOpenSslPemFileCredentialsErrorSource,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+    );
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, CreateWithAMissingPinInTheListReturnsTheNullCredentials)
+{
+    const char* pins[] = {"sha-256:AA", nullptr};
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+
+    credentials = SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    POINTERS_EQUAL(SolidSyslogOpenSslNullCredentials_Get(), credentials);
+    credentials = nullptr;
+}
+
+TEST(SolidSyslogOpenSslPemFileCredentials, CreateWithAMissingPinInTheListReportsBadConfig)
+{
+    const char* pins[] = {"sha-256:AA", nullptr};
+    ErrorHandlerFake_Install(nullptr);
+    config.PeerFingerprints = pins;
+    config.PeerFingerprintCount = 2;
+
+    SolidSyslogOpenSslPemFileCredentials_Create(&config);
+
+    CHECK_ERROR_REPORTED_ONCE(
+        SOLIDSYSLOG_SEVERITY_CRITICAL,
+        &SolidSyslogOpenSslPemFileCredentialsErrorSource,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+    );
 }

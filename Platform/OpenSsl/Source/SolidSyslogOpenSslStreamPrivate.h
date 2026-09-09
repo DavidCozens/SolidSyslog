@@ -16,6 +16,7 @@
 #include "SolidSyslogStreamDefinition.h"
 #include "SolidSyslogOpenSslStream.h"
 #include "SolidSyslogOpenSslStreamErrors.h"
+#include "SolidSyslogTlsCredentialsInstalled.h"
 
 struct SolidSyslogOpenSslStream
 {
@@ -29,6 +30,9 @@ struct SolidSyslogOpenSslStream
      * call returned, and Close is idempotent, so the flag is what keeps both
      * true at once. */
     bool CredentialsInstalled;
+    /* What the last Install reported. Read after Install returns, by the verify
+     * callback and by the hostname step; valid only while CredentialsInstalled. */
+    struct SolidSyslogTlsCredentialsInstalled Installed;
 };
 
 void SolidSyslogOpenSslStream_Initialise(

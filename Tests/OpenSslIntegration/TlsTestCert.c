@@ -6,6 +6,7 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <openssl/obj_mac.h>
 #include <openssl/rsa.h>
@@ -79,6 +80,29 @@ void TlsTestCert_WritePrivateKeyPemToFile(const struct TlsTestCert* cert, const 
     }
     PEM_write_PrivateKey(file, cert->key, NULL, NULL, 0, NULL, NULL);
     fclose(file);
+}
+
+void TlsTestCert_WriteFingerprint(const struct TlsTestCert* cert, const char* label, char* out, size_t capacity)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    const EVP_MD* md = (strcmp(label, "sha-1") == 0) ? EVP_sha1() : EVP_sha256();
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    X509_digest(cert->cert, md, digest, &length);
+
+    size_t written = strlen(label);
+    if (capacity > (written + ((size_t) length * 3U)))
+    {
+        memcpy(out, label, written);
+        for (unsigned int i = 0; i < length; i++)
+        {
+            out[written] = ':';
+            out[written + 1U] = HEX[digest[i] >> 4U];
+            out[written + 2U] = HEX[digest[i] & 0x0FU];
+            written += 3U;
+        }
+        out[written] = '\0';
+    }
 }
 
 static void SetValidity(X509* cert, const struct TlsTestCertConfig* config)

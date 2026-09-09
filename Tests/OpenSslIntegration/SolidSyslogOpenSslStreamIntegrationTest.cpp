@@ -55,12 +55,21 @@ static void CaptureError(void* context, const struct SolidSyslogErrorEvent* even
         LONGS_EQUAL((expectedCode), LastCapturedError.Detail);                                         \
     }
 
+static const char* const LOCALHOST_SANS[] = {"localhost", nullptr};
+
 // clang-format off
 TEST_GROUP(OpenSslStreamIntegration)
 {
     struct TlsTestCert                cert           = {};
     struct TlsTestCert                clientCa       = {};
     struct TlsTestCert                clientCert     = {};
+    /* Throwaway certificates a single test substitutes for real material.
+       Fixture members rather than locals so a failing assertion, which
+       abandons the test body, still releases them. */
+    struct TlsTestCert                untrusted      = {};
+    struct TlsTestCert                untrustedCa    = {};
+    struct TlsTestCert                strayCert      = {};
+    struct TlsTestCert                stranger       = {};
     struct TlsTestServer*             server         = nullptr;
     struct SolidSyslogStream*         transport      = nullptr;
     struct SolidSyslogOpenSslStreamConfig tlsConfig      = {};
@@ -70,6 +79,14 @@ TEST_GROUP(OpenSslStreamIntegration)
     struct SolidSyslogStream*         tlsStream      = nullptr;
     struct SolidSyslogAddress*        addr           = nullptr;
     char                              caPath[256]     = {};
+    /* Set before buildScenario. A label pins the server's own certificate with
+       that hash; a literal pins whatever it says. */
+    const struct TlsTestCert*         serverIssuer    = nullptr;
+    const char*                       pinLabel        = nullptr;
+    const char*                       pinLiteral      = nullptr;
+    bool                              installTrustAnchors = true;
+    char                              pinText[160]    = {};
+    const char*                       pins[1]         = {};
     char                              clientCertPath[256] = {};
     char                              clientKeyPath[256]  = {};
 
@@ -91,6 +108,10 @@ TEST_GROUP(OpenSslStreamIntegration)
         if (cert.cert != nullptr)         { TlsTestCert_Destroy(&cert); }
         if (clientCert.cert != nullptr)   { TlsTestCert_Destroy(&clientCert); }
         if (clientCa.cert != nullptr)     { TlsTestCert_Destroy(&clientCa); }
+        if (untrusted.cert != nullptr)    { TlsTestCert_Destroy(&untrusted); }
+        if (untrustedCa.cert != nullptr)  { TlsTestCert_Destroy(&untrustedCa); }
+        if (strayCert.cert != nullptr)    { TlsTestCert_Destroy(&strayCert); }
+        if (stranger.cert != nullptr)     { TlsTestCert_Destroy(&stranger); }
         if (caPath[0] != '\0')            { (void) std::remove(caPath); }
         if (clientCertPath[0] != '\0')    { (void) std::remove(clientCertPath); }
         if (clientKeyPath[0] != '\0')     { (void) std::remove(clientKeyPath); }
@@ -118,6 +139,7 @@ TEST_GROUP(OpenSslStreamIntegration)
         TlsTestCert_WritePemToFile(&cert, caPath);
 
         struct TlsTestServerConfig serverConfig = {};
+        serverConfig.IssuerCert   = serverIssuer;
         serverConfig.ServerCert   = &cert;
         serverConfig.ClientCaCert = serverClientCa;
         server                    = TlsTestServer_Create(&serverConfig);
@@ -125,7 +147,11 @@ TEST_GROUP(OpenSslStreamIntegration)
         transport = BioPairStream_Create(TlsTestServer_ClientSideBio(server));
         BioPairStream_SetPump(transport, TlsTestServer_Pump, server);
 
-        credsConfig.CaBundlePath = caPath;
+        if (installTrustAnchors)
+        {
+            credsConfig.CaBundlePath = caPath;
+        }
+        applyPinPolicy();
         credentials              = SolidSyslogOpenSslPemFileCredentials_Create(&credsConfig);
 
         tlsConfig.Transport    = transport;
@@ -133,6 +159,24 @@ TEST_GROUP(OpenSslStreamIntegration)
         tlsConfig.Credentials  = credentials;
         tlsConfig.ServerName   = clientServerName;
         tlsStream              = SolidSyslogOpenSslStream_Create(&tlsConfig);
+    }
+
+    void applyPinPolicy()
+    {
+        if (pinLabel != nullptr)
+        {
+            TlsTestCert_WriteFingerprint(&cert, pinLabel, pinText, sizeof(pinText));
+            pins[0] = pinText;
+        }
+        else if (pinLiteral != nullptr)
+        {
+            pins[0] = pinLiteral;
+        }
+        if (pins[0] != nullptr)
+        {
+            credsConfig.PeerFingerprints    = pins;
+            credsConfig.PeerFingerprintCount = 1;
+        }
     }
 
     /* Creates the client-side mTLS material and writes it to disk.
@@ -155,6 +199,25 @@ TEST_GROUP(OpenSslStreamIntegration)
         credsConfig.ClientKeyPath       = clientKeyPath;
     }
 
+    /* A collector certificate issued by a CA, which the server then presents
+       alongside the leaf. `clientCa` doubles as the issuer here. */
+    void givenAnIssuedServerCertificate()
+    {
+        struct TlsTestCertConfig caConfig = {};
+        caConfig.commonName               = "SolidSyslog Test Collector CA";
+        TlsTestCert_Create(&caConfig, &clientCa);
+        serverIssuer = &clientCa;
+    }
+
+    [[nodiscard]] struct TlsTestCertConfig issuedCertConfig() const
+    {
+        struct TlsTestCertConfig certConfig = {};
+        certConfig.commonName         = "localhost";
+        certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+        certConfig.issuer             = &clientCa;
+        return certConfig;
+    }
+
     void createClientCa()
     {
         struct TlsTestCertConfig caConfig = {};
@@ -164,8 +227,6 @@ TEST_GROUP(OpenSslStreamIntegration)
 };
 
 // clang-format on
-
-static const char* const LOCALHOST_SANS[] = {"localhost", nullptr};
 
 TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstTrustedServerCert)
 {
@@ -228,14 +289,11 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenClientDoesNotTrustServerCert
      * handshake attempt. */
     struct TlsTestCertConfig untrustedConfig = {};
     untrustedConfig.commonName = "some-other-entity.example";
-    struct TlsTestCert untrusted = {};
     TlsTestCert_Create(&untrustedConfig, &untrusted);
     TlsTestCert_WritePemToFile(&untrusted, caPath);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
-
-    TlsTestCert_Destroy(&untrusted);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenCipherListIsUnsupported)
@@ -297,7 +355,6 @@ TEST(OpenSslStreamIntegration, MutualTlsConnectsServerAuthenticatedWhenClientKey
      * covers. */
     struct TlsTestCertConfig strayConfig = {};
     strayConfig.commonName = "unrelated";
-    struct TlsTestCert strayCert = {};
     TlsTestCert_Create(&strayConfig, &strayCert);
     TlsTestCert_WritePrivateKeyPemToFile(&strayCert, clientKeyPath);
 
@@ -320,7 +377,6 @@ TEST(OpenSslStreamIntegration, MutualTlsConnectsServerAuthenticatedWhenClientKey
         SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED,
         LastCapturedError.Detail
     );
-    TlsTestCert_Destroy(&strayCert);
 }
 
 TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByUntrustedCa)
@@ -331,7 +387,6 @@ TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByU
      * about - the server's trust store only has `clientCa`. */
     struct TlsTestCertConfig untrustedCaConfig = {};
     untrustedCaConfig.commonName = "Untrusted Client CA";
-    struct TlsTestCert untrustedCa = {};
     TlsTestCert_Create(&untrustedCaConfig, &untrustedCa);
     stageClientIdentity(&untrustedCa);
 
@@ -341,5 +396,152 @@ TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByU
     buildScenario(serverCertConfig, "localhost", &clientCa);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    TlsTestCert_Destroy(&untrustedCa);
+}
+
+/* -------------------------------------------------------------------------
+ * Certificate fingerprint authorisation (RFC 5425 4.2.2).
+ * ------------------------------------------------------------------------- */
+
+/* A pin no certificate will ever match. */
+static const char* const UNMATCHABLE_PIN = "sha-256:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:"
+                                           "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenAPinIsTheOnlyThingAuthorisingTheServer)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(0, CapturedErrorCount);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertMatchesNoPin)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = UNMATCHABLE_PIN;
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    certConfig.notBefore = std::time(nullptr) - 7200;
+    certConfig.notAfter = std::time(nullptr) - 3600;
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinAgree)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-256";
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheChainIsTrustedButNoPinMatches)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = UNMATCHABLE_PIN;
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstASha1PinAndWarnsOfIt)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLabel = "sha-1";
+    installTrustAnchors = false;
+    buildScenario(certConfig);
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(1, CapturedErrorCount);
+    LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_WARNING, LastCapturedError.Severity);
+    POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
+    UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
+    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_SHA1, LastCapturedError.Detail);
+}
+
+TEST(OpenSslStreamIntegration, OpenFailsWhenAPinIsMalformed)
+{
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "localhost";
+    certConfig.subjectAltDnsNames = LOCALHOST_SANS;
+    pinLiteral = "sha-256:not-a-fingerprint";
+    buildScenario(certConfig);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    LONGS_EQUAL(1, CapturedErrorCount);
+    LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_ERROR, LastCapturedError.Severity);
+    POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
+    UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
+    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED, LastCapturedError.Detail);
+}
+
+/* A collector that presents its issuer alongside its leaf is the ordinary
+   case, and puts the chain-trust failure above the leaf. */
+TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenAPinAuthorisesALeafPresentedWithItsIssuer)
+{
+    givenAnIssuedServerCertificate();
+    pinLabel = "sha-256";
+    installTrustAnchors = false;
+    buildScenario(issuedCertConfig());
+
+    CHECK_TRUE(SolidSyslogStream_Open(tlsStream, addr));
+}
+
+/* Waiving the chain above the leaf must not let the leaf itself through. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenALeafPresentedWithItsIssuerMatchesNoPin)
+{
+    givenAnIssuedServerCertificate();
+    pinLiteral = UNMATCHABLE_PIN;
+    installTrustAnchors = false;
+    buildScenario(issuedCertConfig());
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+}
+
+/* The waiver is for a peer authorised by pin alone. Where trust anchors are
+   configured as well, the chain must still validate against them. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTrustAnchorsAreConfiguredAndTheChainDoesNotReachThem)
+{
+    givenAnIssuedServerCertificate();
+    pinLabel = "sha-256";
+    buildScenario(issuedCertConfig());
+
+    /* The trust file holds an unrelated self-signed certificate, so the anchors
+       are installed but the presented chain reaches none of them. */
+    struct TlsTestCertConfig strangerConfig = {};
+    strangerConfig.commonName = "some-other-entity.example";
+    TlsTestCert_Create(&strangerConfig, &stranger);
+    TlsTestCert_WritePemToFile(&stranger, caPath);
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
 }

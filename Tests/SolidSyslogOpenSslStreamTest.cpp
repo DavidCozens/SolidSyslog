@@ -41,6 +41,14 @@ class TEST_SolidSyslogOpenSslStream_ReadReturnsNegativeOneOnHardErrorAndClosesSs
 class TEST_SolidSyslogOpenSslStream_ReadReturnsNegativeOneOnZeroReturnAndClosesSsl_Test;
 class TEST_SolidSyslogOpenSslStream_SendClosesTransportOnWriteFailure_Test;
 
+/* One RFC 5425 4.2.2 pin and the digest that matches it. */
+static const char* const TEST_SHA256_PINS[] = {
+    "sha-256:00:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F"
+};
+static const uint8_t TEST_SHA256_DIGEST[32] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+                                               0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                                               0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F};
+
 static int NoOpSleepCallCount;
 static int g_lastSleepMs;
 
@@ -186,6 +194,25 @@ TEST_GROUP(SolidSyslogOpenSslStream)
     {
         SolidSyslogStream_Open(stream, addr);
         OpenSslFake_SetWriteFails(true);
+    }
+
+    /* Open, then drive the verify callback for the leaf certificate, with
+       `preverifyOk` as OpenSSL's own verdict on it. */
+    [[nodiscard]] int OpenThenVerifyLeaf(int preverifyOk) const
+    {
+        SolidSyslogStream_Open(stream, addr);
+        return OpenSslFake_LastVerifyCallback()(preverifyOk, OpenSslFake_StoreCtx());
+    }
+
+    /* Drive the verify callback for a certificate above the leaf, with
+       `preverifyOk` as OpenSSL's verdict on it and `error` the objection it
+       raised. */
+    [[nodiscard]] int OpenThenVerifyIssuer(int preverifyOk, int error) const
+    {
+        OpenSslFake_SetStoreCtxDepth(1);
+        OpenSslFake_SetStoreCtxError(error);
+        SolidSyslogStream_Open(stream, addr);
+        return OpenSslFake_LastVerifyCallback()(preverifyOk, OpenSslFake_StoreCtx());
     }
 
     void SendShortMessage() const
@@ -1231,9 +1258,8 @@ TEST(SolidSyslogOpenSslStream, OpenReportsThatNothingAuthorisesThePeer)
 
 TEST(SolidSyslogOpenSslStream, OpenSucceedsWhenFingerprintsAuthoriseThePeerWithoutTrustAnchors)
 {
-    static const char* const pins[] = {"sha-256:AA"};
     OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
-    OpenSslCredentialsFake_SetFingerprints(pins, 1);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
 
     CHECK_TRUE(SolidSyslogStream_Open(stream, addr));
 }
@@ -1242,9 +1268,8 @@ TEST(SolidSyslogOpenSslStream, OpenSucceedsWhenFingerprintsAuthoriseThePeerWitho
  * this is the one place in the change that could fail open rather than closed. */
 TEST(SolidSyslogOpenSslStream, OpenRequiresPeerVerificationWithoutTrustAnchors)
 {
-    static const char* const pins[] = {"sha-256:AA"};
     OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
-    OpenSslCredentialsFake_SetFingerprints(pins, 1);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
 
     SolidSyslogStream_Open(stream, addr);
 
@@ -1284,4 +1309,225 @@ TEST(SolidSyslogOpenSslStream, ASecondCloseDoesNotReleaseTheCredentialsAgain)
     SolidSyslogStream_Close(stream);
 
     LONGS_EQUAL(1, OpenSslCredentialsFake_ReleaseCallCount());
+}
+
+TEST(SolidSyslogOpenSslStream, OpenFailsWhenAPinIsMalformed)
+{
+    static const char* const pins[] = {"sha-256:AA"};
+    config.ServerName = "logs.example";
+    ReCreateStreamWithUpdatedConfig();
+    OpenSslCredentialsFake_SetFingerprints(pins, 1);
+
+    CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED
+    );
+}
+
+TEST(SolidSyslogOpenSslStream, OpenWarnsOfASha1Pin)
+{
+    static const char* const pins[] = {"sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D"};
+    config.ServerName = "logs.example";
+    ReCreateStreamWithUpdatedConfig();
+    OpenSslCredentialsFake_SetFingerprints(pins, 1);
+
+    CHECK_TRUE(SolidSyslogStream_Open(stream, addr));
+    CHECK_ERROR_REPORTED_ONCE(
+        SOLIDSYSLOG_SEVERITY_WARNING,
+        &SolidSyslogOpenSslStreamErrorSource,
+        SOLIDSYSLOG_CAT_BAD_CONFIG,
+        SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_SHA1
+    );
+}
+
+TEST(SolidSyslogOpenSslStream, OpenDoesNotWarnOfAMissingServerNameWhenThePeerIsPinned)
+{
+    /* Default config.ServerName is NULL. */
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    CHECK_TRUE(SolidSyslogStream_Open(stream, addr));
+    CALLED_FAKE(ErrorHandlerFake_Handle, NEVER);
+}
+
+TEST(SolidSyslogOpenSslStream, OpenInstallsAVerifyCallback)
+{
+    SolidSyslogStream_Open(stream, addr);
+
+    CHECK_TRUE(OpenSslFake_LastVerifyCallback() != nullptr);
+}
+
+TEST(SolidSyslogOpenSslStream, OpenAttachesTheStreamToTheSessionForTheVerifyCallback)
+{
+    SolidSyslogStream_Open(stream, addr);
+
+    LONGS_EQUAL(0, OpenSslFake_LastSslExDataIndex());
+    POINTERS_EQUAL(stream, OpenSslFake_LastSslExData());
+}
+
+TEST(SolidSyslogOpenSslStream, OpenFailsWhenTheSessionCannotCarryTheStream)
+{
+    OpenSslFake_SetSslExDataFails(true);
+    CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
+        SOLIDSYSLOG_OPENSSL_STREAM_ERROR_SESSION_INIT_FAILED
+    );
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackRefusesAPinnedPeerWhoseFingerprintMatchesNone)
+{
+    static const uint8_t presented[32] = {0xFF};
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(presented, sizeof(presented));
+
+    LONGS_EQUAL(0, OpenThenVerifyLeaf(1));
+    LONGS_EQUAL(X509_V_ERR_APPLICATION_VERIFICATION, OpenSslFake_StoreCtxError());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackAcceptsAPinnedPeerWhoseFingerprintMatches)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+
+    LONGS_EQUAL(1, OpenThenVerifyLeaf(1));
+    LONGS_EQUAL(X509_V_OK, OpenSslFake_StoreCtxError());
+    POINTERS_EQUAL(EVP_sha256(), OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDigestsWithSha1ForASha1Pin)
+{
+    static const char* const pins[] = {"sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D"};
+    static const uint8_t presented[20] = {0xE1, 0x2D, 0x53, 0x2B, 0x7C, 0x6B, 0x8A, 0x29, 0xA2, 0x76,
+                                          0xC8, 0x64, 0x36, 0x0B, 0x08, 0x4B, 0x7A, 0xF1, 0x9E, 0x9D};
+    OpenSslCredentialsFake_SetFingerprints(pins, 1);
+    OpenSslFake_SetCertDigest(presented, sizeof(presented));
+
+    LONGS_EQUAL(1, OpenThenVerifyLeaf(1));
+    POINTERS_EQUAL(EVP_sha1(), OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackRefusesAPinnedPeerWhoseCertificateWillNotDigest)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetDigestFails(true);
+
+    LONGS_EQUAL(0, OpenThenVerifyLeaf(1));
+    LONGS_EQUAL(X509_V_ERR_APPLICATION_VERIFICATION, OpenSslFake_StoreCtxError());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackLeavesAnIssuerCertificateToOpenSsl)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetStoreCtxDepth(1);
+
+    LONGS_EQUAL(1, OpenThenVerifyLeaf(1));
+    POINTERS_EQUAL(nullptr, OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackLeavesAnUnpinnedPeerToOpenSsl)
+{
+    LONGS_EQUAL(0, OpenThenVerifyLeaf(0));
+    POINTERS_EQUAL(nullptr, OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackWaivesChainTrustForAPinnedPeerWithoutTrustAnchors)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    OpenSslFake_SetStoreCtxError(X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT);
+
+    LONGS_EQUAL(1, OpenThenVerifyLeaf(0));
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackWaivesEveryObjectionAMissingTrustAnchorRaises)
+{
+    static const int chainTrustErrors[] = {
+        X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT,
+        X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN,
+        X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY,
+        X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT,
+        X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE,
+        X509_V_ERR_CERT_UNTRUSTED,
+    };
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    SolidSyslogStream_Open(stream, addr);
+
+    for (int error : chainTrustErrors)
+    {
+        OpenSslFake_SetStoreCtxError(error);
+        LONGS_EQUAL_TEXT(
+            1,
+            OpenSslFake_LastVerifyCallback()(0, OpenSslFake_StoreCtx()),
+            StringFrom(error).asCharString()
+        );
+    }
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveTheCertificatesOwnValidityForAPinnedPeer)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    OpenSslFake_SetStoreCtxError(X509_V_ERR_CERT_HAS_EXPIRED);
+
+    LONGS_EQUAL(0, OpenThenVerifyLeaf(0));
+    LONGS_EQUAL(X509_V_ERR_CERT_HAS_EXPIRED, OpenSslFake_StoreCtxError());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackRequiresTheChainTooWhenTrustAnchorsAreInstalled)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+    OpenSslFake_SetCertDigest(TEST_SHA256_DIGEST, sizeof(TEST_SHA256_DIGEST));
+    OpenSslFake_SetStoreCtxError(X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT);
+
+    LONGS_EQUAL(0, OpenThenVerifyLeaf(0));
+    LONGS_EQUAL(X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT, OpenSslFake_StoreCtxError());
+}
+
+TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerFingerprintDidNotMatch)
+{
+    ArrangeCertificateVerificationFailure(X509_V_ERR_APPLICATION_VERIFICATION);
+    CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
+        SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED
+    );
+}
+
+/* Returning zero above the leaf stops OpenSSL before the leaf is reached, so a
+   collector presenting its issuer would never have its pin consulted. */
+TEST(SolidSyslogOpenSslStream, VerifyCallbackWaivesAChainTrustErrorAboveTheLeafForAPinnedPeerWithoutTrustAnchors)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(1, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
+    POINTERS_EQUAL(nullptr, OpenSslFake_LastDigestMd());
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveAboveTheLeafWhenTrustAnchorsAreInstalled)
+{
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveTheCertificatesOwnValidityAboveTheLeaf)
+{
+    OpenSslCredentialsFake_SetTrustAnchorsInstalled(false);
+    OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
+
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_CERT_HAS_EXPIRED));
+}
+
+TEST(SolidSyslogOpenSslStream, VerifyCallbackLeavesAnIssuerToOpenSslWhenNoPeerIsPinned)
+{
+    LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
 }
