@@ -63,6 +63,13 @@ TEST_GROUP(OpenSslStreamIntegration)
     struct TlsTestCert                cert           = {};
     struct TlsTestCert                clientCa       = {};
     struct TlsTestCert                clientCert     = {};
+    /* Throwaway certificates a single test substitutes for real material.
+       Fixture members rather than locals so a failing assertion, which
+       abandons the test body, still releases them. */
+    struct TlsTestCert                untrusted      = {};
+    struct TlsTestCert                untrustedCa    = {};
+    struct TlsTestCert                strayCert      = {};
+    struct TlsTestCert                stranger       = {};
     struct TlsTestServer*             server         = nullptr;
     struct SolidSyslogStream*         transport      = nullptr;
     struct SolidSyslogOpenSslStreamConfig tlsConfig      = {};
@@ -101,6 +108,10 @@ TEST_GROUP(OpenSslStreamIntegration)
         if (cert.cert != nullptr)         { TlsTestCert_Destroy(&cert); }
         if (clientCert.cert != nullptr)   { TlsTestCert_Destroy(&clientCert); }
         if (clientCa.cert != nullptr)     { TlsTestCert_Destroy(&clientCa); }
+        if (untrusted.cert != nullptr)    { TlsTestCert_Destroy(&untrusted); }
+        if (untrustedCa.cert != nullptr)  { TlsTestCert_Destroy(&untrustedCa); }
+        if (strayCert.cert != nullptr)    { TlsTestCert_Destroy(&strayCert); }
+        if (stranger.cert != nullptr)     { TlsTestCert_Destroy(&stranger); }
         if (caPath[0] != '\0')            { (void) std::remove(caPath); }
         if (clientCertPath[0] != '\0')    { (void) std::remove(clientCertPath); }
         if (clientKeyPath[0] != '\0')     { (void) std::remove(clientKeyPath); }
@@ -278,14 +289,11 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenClientDoesNotTrustServerCert
      * handshake attempt. */
     struct TlsTestCertConfig untrustedConfig = {};
     untrustedConfig.commonName = "some-other-entity.example";
-    struct TlsTestCert untrusted = {};
     TlsTestCert_Create(&untrustedConfig, &untrusted);
     TlsTestCert_WritePemToFile(&untrusted, caPath);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
-
-    TlsTestCert_Destroy(&untrusted);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenCipherListIsUnsupported)
@@ -347,7 +355,6 @@ TEST(OpenSslStreamIntegration, MutualTlsConnectsServerAuthenticatedWhenClientKey
      * covers. */
     struct TlsTestCertConfig strayConfig = {};
     strayConfig.commonName = "unrelated";
-    struct TlsTestCert strayCert = {};
     TlsTestCert_Create(&strayConfig, &strayCert);
     TlsTestCert_WritePrivateKeyPemToFile(&strayCert, clientKeyPath);
 
@@ -370,7 +377,6 @@ TEST(OpenSslStreamIntegration, MutualTlsConnectsServerAuthenticatedWhenClientKey
         SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED,
         LastCapturedError.Detail
     );
-    TlsTestCert_Destroy(&strayCert);
 }
 
 TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByUntrustedCa)
@@ -381,7 +387,6 @@ TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByU
      * about - the server's trust store only has `clientCa`. */
     struct TlsTestCertConfig untrustedCaConfig = {};
     untrustedCaConfig.commonName = "Untrusted Client CA";
-    struct TlsTestCert untrustedCa = {};
     TlsTestCert_Create(&untrustedCaConfig, &untrustedCa);
     stageClientIdentity(&untrustedCa);
 
@@ -391,7 +396,6 @@ TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByU
     buildScenario(serverCertConfig, "localhost", &clientCa);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    TlsTestCert_Destroy(&untrustedCa);
 }
 
 /* -------------------------------------------------------------------------
@@ -535,12 +539,9 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTrustAnchorsAreConfiguredAnd
        are installed but the presented chain reaches none of them. */
     struct TlsTestCertConfig strangerConfig = {};
     strangerConfig.commonName = "some-other-entity.example";
-    struct TlsTestCert stranger = {};
     TlsTestCert_Create(&strangerConfig, &stranger);
     TlsTestCert_WritePemToFile(&stranger, caPath);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
-
-    TlsTestCert_Destroy(&stranger);
 }
