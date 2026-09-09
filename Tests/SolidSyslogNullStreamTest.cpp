@@ -35,3 +35,8 @@ TEST(SolidSyslogNullStream, CloseDoesNotCrash)
 {
     SolidSyslogStream_Close(stream);
 }
+
+TEST(SolidSyslogNullStream, VersionIsAlwaysZeroBecauseNothingChangesAtRuntime)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
+}

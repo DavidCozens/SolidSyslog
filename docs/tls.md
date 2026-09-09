@@ -155,8 +155,8 @@ element, an encrypted store.
 Two things follow from that, and one does not.
 
 **A device issued new credentials while it is running uses them on its next
-connection** without being restarted. Forcing that reconnection with
-`SolidSyslogSender_Disconnect` makes it immediate.
+connection** without being restarted. Moving the stream's configuration version
+makes it immediate.
 
 **The window in which the integrator must keep material intact is the
 connection**, not the lifetime of the stream. That is the point of announcing the
@@ -180,11 +180,33 @@ changed at runtime, redirecting a device to a different collector must carry the
 identity its certificate is checked against, or the redirection moves the device
 to an unverified peer.
 
+### Apply a change by moving a version, not by reaching into the connection
+
+Every `Stream` reports a configuration version, and the sender reads it on every
+record. Moving that version is how a change to the material, the expected peer or
+the cipher policy is applied: the sender closes the connection on its next pass
+and opens a new one, so the change is in force from the following record.
+
+This is the only lever an integrator needs from outside the task that services
+the library. A version is a value the integrator owns, read back at a point of
+the library's choosing; `SolidSyslogSender_Disconnect` touches the sender's own
+connection state and takes no lock, so it belongs to the servicing task.
+
+A stream whose configuration cannot change at runtime reports one version for its
+lifetime, and the sender never reconnects on its account.
+
+Applying a change is a separate question from destroying what it replaced. A
+version moved from another task says nothing about when the connection actually
+closed, so material the integrator must free rather than overwrite is still
+governed by the release announcement above. Each platform page states what its
+own credential sources require.
+
 ### A connection is long-lived, and the integrator bounds it
 
 A `Stream` opens on the first record that needs it and stays open. It closes when
-a send fails, when the destination changes, when the integrator calls
-`SolidSyslogSender_Disconnect`, or when the stream is destroyed. There is no idle
+a send fails, when the destination changes, when the stream's own configuration
+version moves, when the integrator calls `SolidSyslogSender_Disconnect`, or when
+the stream is destroyed. There is no idle
 timeout and no maximum lifetime, because a syslog client that reconnects on a
 timer costs a handshake each time and gains nothing for a device that logs
 steadily.
@@ -195,10 +217,10 @@ material stays resident for all of it.** The private key is needed once, to sign
 during the handshake; it is retained for the rest because neither TLS library
 offers a client a way to hand it back.
 
-Bounding that window is the integrator's, using `SolidSyslogSender_Disconnect`. A
-deployment that wants the material resident for minutes rather than months
-disconnects on its own schedule; the next record reconnects and the credential
-source is asked again. The same lever serves RFC 5425 §4.4's requirement that a
+Bounding that window is the integrator's. A deployment that wants the material
+resident for minutes rather than months moves the configuration version on its
+own schedule; the next record reconnects and the credential source is asked
+again. The same lever serves RFC 5425 §4.4's requirement that a
 sender close a connection it does not expect to carry more messages.
 
 Where the key must not be in application memory at all, that is a property of the

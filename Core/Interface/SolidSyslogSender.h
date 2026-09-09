@@ -22,7 +22,10 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
      *  first use, which can block on the transport. @p buffer is read only during the call. */
     bool SolidSyslogSender_Send(struct SolidSyslogSender * sender, const void* buffer, size_t size);
 
-    /** Drop the connection; the next Send reconnects. Idempotent. */
+    /** Drop the connection; the next Send reconnects. Idempotent. Touches the
+     *  same connection state as Send and takes no lock, so call it from the
+     *  servicing thread. From any other thread, move the version the sender polls
+     *  instead - the endpoint's or the stream's - and the next Send reconnects. */
     void SolidSyslogSender_Disconnect(struct SolidSyslogSender * sender);
 
 SOLIDSYSLOG_EXTERN_C_END

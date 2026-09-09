@@ -2,6 +2,7 @@
 
 #include <openssl/bio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "SolidSyslogStreamDefinition.h"
@@ -21,6 +22,7 @@ static bool Open(struct SolidSyslogStream* self, const struct SolidSyslogAddress
 static bool Send(struct SolidSyslogStream* self, const void* buffer, size_t size);
 static SolidSyslogSsize Read(struct SolidSyslogStream* self, void* buffer, size_t size);
 static void Close(struct SolidSyslogStream* self);
+static uint32_t Version(struct SolidSyslogStream* self);
 
 struct SolidSyslogStream* BioPairStream_Create(BIO* bio)
 {
@@ -29,6 +31,7 @@ struct SolidSyslogStream* BioPairStream_Create(BIO* bio)
     stream->Base.Send = Send;
     stream->Base.Read = Read;
     stream->Base.Close = Close;
+    stream->Base.Version = Version;
     stream->Bio = bio;
     return &stream->Base;
 }
@@ -91,4 +94,10 @@ static SolidSyslogSsize Read(struct SolidSyslogStream* self, void* buffer, size_
 static void Close(struct SolidSyslogStream* self)
 {
     (void) self;
+}
+
+static uint32_t Version(struct SolidSyslogStream* self)
+{
+    (void) self;
+    return 0;
 }

@@ -926,3 +926,61 @@ TEST(SolidSyslogStreamSenderDeliveryHealth, StayingUpReportsNothing)
     Send();
     CALLED_FAKE(ErrorHandlerFake_Handle, NEVER);
 }
+
+// The stream reports its own configuration version through the Stream vtable,
+// so a rotated credential or a changed pinned peer reconnects on the next Send
+// without the integrator calling Disconnect from off the servicing thread.
+// StreamFake_SetVersion stands in for whatever the integrator bumps.
+
+// clang-format off
+TEST_GROUP(SolidSyslogStreamSenderStreamVersion)
+{
+    struct SolidSyslogResolver*          resolver = nullptr;
+    struct SolidSyslogStream*            stream   = nullptr;
+    struct SolidSyslogAddress*           address  = nullptr;
+    struct SolidSyslogStreamSenderConfig config{};
+    struct SolidSyslogSender*            sender   = nullptr;
+
+    void setup() override
+    {
+        SocketFake_Reset();
+        endpointGetHost = GetHost;
+        endpointVersion = 0;
+        endpointGetPort = GetPort;
+        resolver = SolidSyslogPosixResolver_Create();
+        stream   = StreamFake_Create();
+        address  = SolidSyslogPosixAddress_Create();
+        config   = {resolver, stream, address, TestEndpoint, TestEndpointVersion, nullptr};
+        sender   = SolidSyslogStreamSender_Create(&config);
+    }
+
+    void teardown() override
+    {
+        SolidSyslogStreamSender_Destroy(sender);
+        SolidSyslogPosixAddress_Destroy(address);
+        StreamFake_Destroy(stream);
+        SolidSyslogPosixResolver_Destroy(resolver);
+    }
+
+    void Send() const
+    {
+        SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN);
+    }
+};
+
+// clang-format on
+
+TEST(SolidSyslogStreamSenderStreamVersion, VersionChangeBetweenSendsReopensTheStream)
+{
+    Send();
+    StreamFake_SetVersion(stream, 1);
+    Send();
+    LONGS_EQUAL(2, StreamFake_OpenCallCount(stream));
+}
+
+TEST(SolidSyslogStreamSenderStreamVersion, SendStillSucceedsAcrossTheReconnect)
+{
+    Send();
+    StreamFake_SetVersion(stream, 1);
+    CHECK_TRUE(SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN));
+}

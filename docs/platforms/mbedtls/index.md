@@ -51,12 +51,17 @@ freed and with it every pointer into the material. That window is what a source
 reaching a secure element or an encrypted store needs, and the PEM-buffer source
 is the worked example of using it.
 
-Rotation with the handle source is a disconnect and a re-parse: call
-`SolidSyslogSender_Disconnect`, then free and re-parse into the same handle. The
-next send reconnects with the new material. Freeing before the disconnect
-completes is a use-after-free, because the open connection is still reading it.
-With the PEM-buffer source, replacing the buffer is enough - the next connection
-parses whatever it then points at.
+With the PEM-buffer source, replacing the buffer and moving the stream's
+configuration version is enough - nothing is freed, and the next connection
+parses whatever the buffer then points at.
+
+The handle source is different, because rotating it means freeing material the
+open connection is still reading. Moving the version applies the change but does
+not say when the old handle stops being read, so the free and the re-parse belong
+after the connection has closed: either call `SolidSyslogSender_Disconnect` from
+the task that services the library and re-parse once it returns, or put the free
+and the re-parse in a credentials source's `Release`, which the stream calls when
+it has finished with the material.
 
 ## Coexistence is an auditable contract
 

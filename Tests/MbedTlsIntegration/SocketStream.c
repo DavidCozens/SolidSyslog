@@ -1,6 +1,7 @@
 #include "SocketStream.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -21,6 +22,7 @@ static bool SocketStream_Open(struct SolidSyslogStream* self, const struct Solid
 static bool SocketStream_Send(struct SolidSyslogStream* self, const void* buffer, size_t size);
 static SolidSyslogSsize SocketStream_Read(struct SolidSyslogStream* self, void* buffer, size_t size);
 static void SocketStream_Close(struct SolidSyslogStream* self);
+static uint32_t SocketStream_Version(struct SolidSyslogStream* self);
 
 struct SolidSyslogStream* SocketStream_Create(int fd)
 {
@@ -29,6 +31,7 @@ struct SolidSyslogStream* SocketStream_Create(int fd)
     stream->Base.Send = SocketStream_Send;
     stream->Base.Read = SocketStream_Read;
     stream->Base.Close = SocketStream_Close;
+    stream->Base.Version = SocketStream_Version;
     stream->Fd = fd;
     return &stream->Base;
 }
@@ -93,4 +96,10 @@ static void SocketStream_Close(struct SolidSyslogStream* self)
         close(stream->Fd);
         stream->Fd = -1;
     }
+}
+
+static uint32_t SocketStream_Version(struct SolidSyslogStream* self)
+{
+    (void) self;
+    return 0;
 }

@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "SolidSyslogStream.h"
 #include "SolidSyslogStreamDefinition.h"
@@ -16,6 +17,7 @@ static bool NullStream_Open(struct SolidSyslogStream* base, const struct SolidSy
 static bool NullStream_Send(struct SolidSyslogStream* base, const void* buffer, size_t size);
 static SolidSyslogSsize NullStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static void NullStream_Close(struct SolidSyslogStream* base);
+static uint32_t NullStream_Version(struct SolidSyslogStream* base);
 
 struct SolidSyslogStream* SolidSyslogNullStream_Get(void)
 {
@@ -24,6 +26,7 @@ struct SolidSyslogStream* SolidSyslogNullStream_Get(void)
         .Send = NullStream_Send,
         .Read = NullStream_Read,
         .Close = NullStream_Close,
+        .Version = NullStream_Version,
     };
     return &instance;
 }
@@ -59,4 +62,10 @@ static SolidSyslogSsize NullStream_Read(struct SolidSyslogStream* base, void* bu
 static void NullStream_Close(struct SolidSyslogStream* base)
 {
     (void) base;
+}
+
+static uint32_t NullStream_Version(struct SolidSyslogStream* base)
+{
+    (void) base;
+    return 0;
 }

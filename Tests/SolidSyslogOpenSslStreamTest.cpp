@@ -77,6 +77,23 @@ extern "C" uint32_t FakeGetHandshakeTimeoutMs(void* context)
     FakeGetHandshakeTimeoutMs_LastContext = context;
     return FakeGetHandshakeTimeoutMs_ReturnValue;
 }
+
+/* Stands in for whatever the integrator bumps when the credentials, the expected
+ * peer name or the cipher list change. */
+uint32_t FakeVersion_ReturnValue = 0;
+void* FakeVersion_LastContext = nullptr;
+
+void FakeVersion_Reset()
+{
+    FakeVersion_ReturnValue = 0;
+    FakeVersion_LastContext = reinterpret_cast<void*>(0x1U); /* sentinel - overwritten on first call */
+}
+
+extern "C" uint32_t FakeVersion(void* context)
+{
+    FakeVersion_LastContext = context;
+    return FakeVersion_ReturnValue;
+}
 } // namespace
 
 // clang-format off
@@ -92,6 +109,7 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         OpenSslFake_Reset();
         ErrorHandlerFake_Install(nullptr);
         FakeGetHandshakeTimeoutMs_Reset();
+        FakeVersion_Reset();
         NoOpSleepCallCount = 0;
         g_lastSleepMs    = 0;
         transport        = StreamFake_Create();
@@ -1530,4 +1548,30 @@ TEST(SolidSyslogOpenSslStream, VerifyCallbackDoesNotWaiveTheCertificatesOwnValid
 TEST(SolidSyslogOpenSslStream, VerifyCallbackLeavesAnIssuerToOpenSslWhenNoPeerIsPinned)
 {
     LONGS_EQUAL(0, OpenThenVerifyIssuer(0, X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY));
+}
+
+TEST(SolidSyslogOpenSslStream, VersionReportsTheConfiguredFunctionsValue)
+{
+    FakeVersion_ReturnValue = 7U;
+    config.Version = FakeVersion;
+    ReCreateStreamWithUpdatedConfig();
+
+    LONGS_EQUAL(7, SolidSyslogStream_Version(stream));
+}
+
+TEST(SolidSyslogOpenSslStream, VersionFunctionReceivesVersionContext)
+{
+    int context = 0;
+    config.Version = FakeVersion;
+    config.VersionContext = &context;
+    ReCreateStreamWithUpdatedConfig();
+
+    SolidSyslogStream_Version(stream);
+
+    POINTERS_EQUAL(&context, FakeVersion_LastContext);
+}
+
+TEST(SolidSyslogOpenSslStream, VersionIsZeroWhenNoFunctionIsConfigured)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
 }

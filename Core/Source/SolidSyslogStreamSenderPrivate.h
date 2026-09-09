@@ -21,6 +21,7 @@ struct SolidSyslogStreamSender
     bool Connected;
     bool DeliveryHealthy;
     uint32_t LastEndpointVersion;
+    uint32_t LastStreamVersion;
 };
 
 void SolidSyslogStreamSender_Initialise(

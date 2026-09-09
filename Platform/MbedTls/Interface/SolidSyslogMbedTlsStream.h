@@ -40,6 +40,7 @@
 
 #include "SolidSyslogExternC.h"
 #include "SolidSyslogSleep.h"
+#include "SolidSyslogStream.h"
 #include "SolidSyslogTlsHandshakeTimeoutFunction.h"
 
 struct SolidSyslogStream;
@@ -82,6 +83,13 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
          *  private CA): the peer must still satisfy whatever the credentials
          *  installed, but the endpoint identity is not checked; no diagnostic. */
         const char* ServerName;
+        /** Bumped by the integrator when anything above changes at runtime - the
+         *  Credentials or ServerName. The sender polls it every Send and reconnects
+         *  on the next pass when it moves, so a rotation applies without calling
+         *  SolidSyslogSender_Disconnect. Polled from the servicing thread, so it
+         *  must be cheap and pure. NULL means this configuration never changes. */
+        SolidSyslogStreamVersionFunction Version;
+        void* VersionContext; /**< Passed to Version unchanged; NULL is fine. */
     };
 
     /** Draw a TLS stream from the pool over the config's Transport (see the file

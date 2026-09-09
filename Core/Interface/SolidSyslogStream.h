@@ -59,6 +59,18 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
      *  a later Open reconnects. */
     void SolidSyslogStream_Close(struct SolidSyslogStream * stream);
 
+    /** Returns a monotonic version the integrator bumps when the stream's
+     *  configuration changes - the material it presents, the peer it will accept.
+     *  A stream implementation polls this to answer SolidSyslogStream_Version, so
+     *  it must be cheap and pure. @p context is the paired context field on that
+     *  stream's config, passed through unchanged. */
+    typedef uint32_t (*SolidSyslogStreamVersionFunction)(void* context);
+
+    /** The stream's current configuration version. The sender polls this every
+     *  Send and reconnects when it has moved, so a stream whose configuration
+     *  cannot change at runtime reports 0 throughout. */
+    uint32_t SolidSyslogStream_Version(struct SolidSyslogStream * stream);
+
 SOLIDSYSLOG_EXTERN_C_END
 
 #endif /* SOLIDSYSLOGSTREAM_H */
