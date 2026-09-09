@@ -234,7 +234,7 @@ static inline enum SolidSyslogTlsAuthorisation TlsFingerprint_AuthoriseOne(
     if (SolidSyslogTlsFingerprint_Parse(fingerprint, &pin))
     {
         uint8_t peerDigest[SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX];
-        size_t peerLength = 0;
+        size_t peerLength = 0U;
         verdict = SOLIDSYSLOG_TLS_AUTHORISATION_DIGEST_UNAVAILABLE;
 
         if (digest(context, pin.Algorithm, peerDigest, &peerLength))

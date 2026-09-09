@@ -11,6 +11,14 @@ TEST_GROUP(SolidSyslogTlsFingerprint)
 
 // clang-format on
 
+/* Names what every malformed-pin test asserts. A macro rather than a function
+   so a failure reports the calling test's line. */
+#define CHECK_PIN_REJECTED(text)                                            \
+    {                                                                       \
+        struct SolidSyslogTlsFingerprint fingerprint = {};                  \
+        CHECK_FALSE(SolidSyslogTlsFingerprint_Parse((text), &fingerprint)); \
+    }
+
 TEST(SolidSyslogTlsFingerprint, ParsesTheRfc5425ExampleSha1Fingerprint)
 {
     struct SolidSyslogTlsFingerprint fingerprint = {};
@@ -95,45 +103,27 @@ TEST(SolidSyslogTlsFingerprint, RejectsTheCharactersAdjacentToTheHexRanges)
 
 TEST(SolidSyslogTlsFingerprint, RejectsAnUnknownHashLabel)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse("md5:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF", &fingerprint));
+    CHECK_PIN_REJECTED("md5:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsALabelWithNoColonAfterIt)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse("sha-1", &fingerprint));
+    CHECK_PIN_REJECTED("sha-1");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsALabelThatOnlyBeginsLikeASupportedOne)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-10:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-10:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsADigestShorterThanTheAlgorithmProduces)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(
-        SolidSyslogTlsFingerprint_Parse("sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E", &fingerprint)
-    );
+    CHECK_PIN_REJECTED("sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsADigestLongerThanTheAlgorithmProduces)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00");
 }
 
 /* RFC 5425 4.2.2 publishes a fingerprint in uppercase, but one reaches this
@@ -182,42 +172,22 @@ TEST(SolidSyslogTlsFingerprint, ParsesEveryLowercaseHexDigit)
 
 TEST(SolidSyslogTlsFingerprint, RejectsACharacterThatIsNotHex)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-1:G1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-1:G1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsPunctuationWhereADigitIsExpected)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-1:*1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-1:*1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsASeparatorThatIsNotAColon)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-1:E1-2D-53-2B-7C-6B-8A-29-A2-76-C8-64-36-0B-08-4B-7A-F1-9E-9D",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-1:E1-2D-53-2B-7C-6B-8A-29-A2-76-C8-64-36-0B-08-4B-7A-F1-9E-9D");
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsASingleDigitPair)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
-        "sha-1:E:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00",
-        &fingerprint
-    ));
+    CHECK_PIN_REJECTED("sha-1:E:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D:00");
 }
 
 struct DigestFake
@@ -376,9 +346,7 @@ TEST(SolidSyslogTlsFingerprint, AnEmptyListIsWellFormed)
 
 TEST(SolidSyslogTlsFingerprint, ParsingAMissingFingerprintFails)
 {
-    struct SolidSyslogTlsFingerprint fingerprint = {};
-
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(nullptr, &fingerprint));
+    CHECK_PIN_REJECTED(nullptr);
 }
 
 TEST(SolidSyslogTlsFingerprint, AListThatIsMissingWhereOneWasCountedIsMalformed)
