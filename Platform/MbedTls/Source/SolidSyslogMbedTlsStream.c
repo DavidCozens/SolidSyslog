@@ -133,7 +133,7 @@ static inline bool MbedTlsStream_ConfigProvidesHandshakeGetter(const struct Soli
 static uint32_t MbedTlsStream_NullVersion(void* context)
 {
     (void) context;
-    return 0;
+    return 0U;
 }
 
 static inline bool MbedTlsStream_ConfigProvidesVersion(const struct SolidSyslogMbedTlsStreamConfig* config)

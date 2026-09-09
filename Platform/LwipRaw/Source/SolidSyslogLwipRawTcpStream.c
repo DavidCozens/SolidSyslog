@@ -465,7 +465,7 @@ static void LwipRawTcpStream_Close(struct SolidSyslogStream* base)
 static uint32_t LwipRawTcpStream_Version(struct SolidSyslogStream* base)
 {
     (void) base;
-    return 0;
+    return 0U;
 }
 
 /* Close touches lwIP only if there is a pcb to close or queued pbufs to

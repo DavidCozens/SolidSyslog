@@ -204,9 +204,9 @@ own credential sources require.
 ### A connection is long-lived, and the integrator bounds it
 
 A `Stream` opens on the first record that needs it and stays open. It closes when
-a send fails, when the destination changes, when the stream's own configuration
-version moves, when the integrator calls `SolidSyslogSender_Disconnect`, or when
-the stream is destroyed. There is no idle
+a send fails, when the destination's version moves, when the stream's own
+configuration version moves, when the integrator calls
+`SolidSyslogSender_Disconnect`, or when the stream is destroyed. There is no idle
 timeout and no maximum lifetime, because a syslog client that reconnects on a
 timer costs a handshake each time and gains nothing for a device that logs
 steadily.

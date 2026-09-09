@@ -53,6 +53,10 @@ struct mbedtls_ctr_drbg_context;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
+    /** Wires SolidSyslogMbedTlsStream to its transport, trust anchors, and identity.
+     *  Copied at Create, so a runtime change is made in what these fields point at -
+     *  rewrite the buffer, re-parse into the handle, hand back new material from the
+     *  Credentials - never by reassigning a field here. */
     struct SolidSyslogMbedTlsStreamConfig
     {
         /** Underlying byte stream the TLS records ride on; required - a NULL is

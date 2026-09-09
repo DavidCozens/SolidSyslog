@@ -39,7 +39,10 @@ struct SolidSyslogOpenSslCredentials;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
-    /** Wires SolidSyslogOpenSslStream to its transport, trust anchors, and identity. */
+    /** Wires SolidSyslogOpenSslStream to its transport, trust anchors, and identity.
+     *  Copied at Create, so a runtime change is made in what these fields point at -
+     *  rewrite the buffer, re-parse into the handle, hand back new material from the
+     *  Credentials - never by reassigning a field here. */
     struct SolidSyslogOpenSslStreamConfig
     {
         /** Underlying byte stream carrying the ciphertext; required - a NULL is

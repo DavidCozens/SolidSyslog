@@ -67,5 +67,5 @@ static void NullStream_Close(struct SolidSyslogStream* base)
 static uint32_t NullStream_Version(struct SolidSyslogStream* base)
 {
     (void) base;
-    return 0;
+    return 0U;
 }

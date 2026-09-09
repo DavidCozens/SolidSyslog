@@ -212,7 +212,7 @@ static void WinsockTcpStream_Close(struct SolidSyslogStream* base)
 static uint32_t WinsockTcpStream_Version(struct SolidSyslogStream* base)
 {
     (void) base;
-    return 0;
+    return 0U;
 }
 
 static bool WinsockTcpStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr)

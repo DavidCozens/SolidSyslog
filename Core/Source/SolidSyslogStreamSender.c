@@ -246,5 +246,5 @@ static void StreamSender_NilEndpoint(struct SolidSyslogEndpoint* endpoint, void*
 static uint32_t StreamSender_NilEndpointVersion(void* context)
 {
     (void) context;
-    return 0;
+    return 0U;
 }

@@ -48,8 +48,10 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         /** Report a monotonic version of this stream's own configuration - what it
          *  will present or accept on the next Open. Bump it when that changes and
          *  the sender reconnects on its next pass. Polled every Send, so it must be
-         *  cheap and pure. A stream with nothing to change reports 0 for its
-         *  lifetime. */
+         *  cheap and pure. Make the change before moving the version: the sender
+         *  may reconnect on the very next record, and a version moved first lets
+         *  it reopen with the configuration being replaced. A stream with nothing
+         *  to change reports 0 for its lifetime. */
         uint32_t (*Version)(struct SolidSyslogStream* base);
     };
 

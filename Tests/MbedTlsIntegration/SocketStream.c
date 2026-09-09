@@ -101,5 +101,5 @@ static void SocketStream_Close(struct SolidSyslogStream* self)
 static uint32_t SocketStream_Version(struct SolidSyslogStream* self)
 {
     (void) self;
-    return 0;
+    return 0U;
 }

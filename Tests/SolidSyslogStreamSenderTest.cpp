@@ -844,16 +844,15 @@ TEST(SolidSyslogStreamSenderBadSetup, DisconnectOnBadSetupSenderDoesNotCrash)
 // boolean directly, isolating the edge logic from any platform stack.
 
 // clang-format off
-TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
+TEST_BASE(StreamSenderOverStreamFakeTestBase)
 {
     struct SolidSyslogResolver*          resolver = nullptr;
     struct SolidSyslogStream*            stream   = nullptr;
     struct SolidSyslogAddress*           address  = nullptr;
     struct SolidSyslogStreamSenderConfig config{};
     struct SolidSyslogSender*            sender   = nullptr;
-    int                                  sentinel = 0;
 
-    void setup() override
+    void setupSenderOverStreamFake()
     {
         SocketFake_Reset();
         endpointGetHost = GetHost;
@@ -864,10 +863,9 @@ TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
         address  = SolidSyslogPosixAddress_Create();
         config   = {resolver, stream, address, TestEndpoint, TestEndpointVersion, nullptr};
         sender   = SolidSyslogStreamSender_Create(&config);
-        ErrorHandlerFake_Install(&sentinel);
     }
 
-    void teardown() override
+    void teardownSenderOverStreamFake() const
     {
         SolidSyslogStreamSender_Destroy(sender);
         SolidSyslogPosixAddress_Destroy(address);
@@ -878,6 +876,22 @@ TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
     void Send() const
     {
         SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN);
+    }
+};
+
+TEST_GROUP_BASE(SolidSyslogStreamSenderDeliveryHealth, StreamSenderOverStreamFakeTestBase)
+{
+    int sentinel = 0;
+
+    void setup() override
+    {
+        setupSenderOverStreamFake();
+        ErrorHandlerFake_Install(&sentinel);
+    }
+
+    void teardown() override
+    {
+        teardownSenderOverStreamFake();
     }
 };
 
@@ -933,38 +947,16 @@ TEST(SolidSyslogStreamSenderDeliveryHealth, StayingUpReportsNothing)
 // StreamFake_SetVersion stands in for whatever the integrator bumps.
 
 // clang-format off
-TEST_GROUP(SolidSyslogStreamSenderStreamVersion)
+TEST_GROUP_BASE(SolidSyslogStreamSenderStreamVersion, StreamSenderOverStreamFakeTestBase)
 {
-    struct SolidSyslogResolver*          resolver = nullptr;
-    struct SolidSyslogStream*            stream   = nullptr;
-    struct SolidSyslogAddress*           address  = nullptr;
-    struct SolidSyslogStreamSenderConfig config{};
-    struct SolidSyslogSender*            sender   = nullptr;
-
     void setup() override
     {
-        SocketFake_Reset();
-        endpointGetHost = GetHost;
-        endpointVersion = 0;
-        endpointGetPort = GetPort;
-        resolver = SolidSyslogPosixResolver_Create();
-        stream   = StreamFake_Create();
-        address  = SolidSyslogPosixAddress_Create();
-        config   = {resolver, stream, address, TestEndpoint, TestEndpointVersion, nullptr};
-        sender   = SolidSyslogStreamSender_Create(&config);
+        setupSenderOverStreamFake();
     }
 
     void teardown() override
     {
-        SolidSyslogStreamSender_Destroy(sender);
-        SolidSyslogPosixAddress_Destroy(address);
-        StreamFake_Destroy(stream);
-        SolidSyslogPosixResolver_Destroy(resolver);
-    }
-
-    void Send() const
-    {
-        SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN);
+        teardownSenderOverStreamFake();
     }
 };
 

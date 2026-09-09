@@ -99,5 +99,5 @@ static void Close(struct SolidSyslogStream* self)
 static uint32_t Version(struct SolidSyslogStream* self)
 {
     (void) self;
-    return 0;
+    return 0U;
 }

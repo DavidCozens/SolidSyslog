@@ -341,5 +341,5 @@ static void PosixTcpStream_Close(struct SolidSyslogStream* base)
 static uint32_t PosixTcpStream_Version(struct SolidSyslogStream* base)
 {
     (void) base;
-    return 0;
+    return 0U;
 }

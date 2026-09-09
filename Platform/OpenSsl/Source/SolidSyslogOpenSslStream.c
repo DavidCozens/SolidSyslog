@@ -693,7 +693,7 @@ static inline bool OpenSslStream_ConfigProvidesHandshakeGetter(const struct Soli
 static uint32_t OpenSslStream_NullVersion(void* context)
 {
     (void) context;
-    return 0;
+    return 0U;
 }
 
 static inline bool OpenSslStream_ConfigProvidesVersion(const struct SolidSyslogOpenSslStreamConfig* config)
