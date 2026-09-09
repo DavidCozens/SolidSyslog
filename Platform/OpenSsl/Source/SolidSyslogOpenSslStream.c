@@ -396,6 +396,21 @@ static inline bool OpenSslStream_LeafMatchesAPin(struct SolidSyslogOpenSslStream
            ) == SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED;
 }
 
+static bool OpenSslStream_DigestCertificate(
+    void* context,
+    enum SolidSyslogTlsHashAlgorithm algorithm,
+    uint8_t* digest,
+    size_t* length
+)
+{
+    const X509* leaf = (const X509*) context;
+    const EVP_MD* md = OpenSslStream_DigestFor(algorithm);
+    unsigned int written = 0U;
+    bool ok = (md != NULL) && (X509_digest(leaf, md, digest, &written) == 1);
+    *length = (size_t) written;
+    return ok;
+}
+
 /* An algorithm this pack does not name has no digest, so a hash added to Core
  * and not handled here refuses the peer rather than being digested as
  * something else. */
@@ -415,21 +430,6 @@ static inline const EVP_MD* OpenSslStream_DigestFor(enum SolidSyslogTlsHashAlgor
         /* Left as NULL. */
     }
     return md;
-}
-
-static bool OpenSslStream_DigestCertificate(
-    void* context,
-    enum SolidSyslogTlsHashAlgorithm algorithm,
-    uint8_t* digest,
-    size_t* length
-)
-{
-    const X509* leaf = (const X509*) context;
-    const EVP_MD* md = OpenSslStream_DigestFor(algorithm);
-    unsigned int written = 0U;
-    bool ok = (md != NULL) && (X509_digest(leaf, md, digest, &written) == 1);
-    *length = (size_t) written;
-    return ok;
 }
 
 static inline bool OpenSslStream_IsChainTrustWaived(

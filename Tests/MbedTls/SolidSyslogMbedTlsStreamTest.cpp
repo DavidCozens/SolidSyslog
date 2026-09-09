@@ -138,7 +138,12 @@ TEST_GROUP(SolidSyslogMbedTlsStream)
     [[nodiscard]] uint32_t OpenThenVerifyAt(int depth, uint32_t flags) const
     {
         SolidSyslogStream_Open(handle, addr);
-        LONGS_EQUAL(0, MbedTlsFake_LastSslConfVerifyCallback()(handle, MbedTlsFake_Certificate(), depth, &flags));
+        auto* verify = MbedTlsFake_LastSslConfVerifyCallback();
+        CHECK_TRUE_TEXT(verify != nullptr, "the stream registered no verify callback");
+        if (verify != nullptr)
+        {
+            LONGS_EQUAL(0, verify(handle, MbedTlsFake_Certificate(), depth, &flags));
+        }
         return flags;
     }
 

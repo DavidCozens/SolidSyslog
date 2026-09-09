@@ -337,27 +337,6 @@ static inline bool MbedTlsStream_LeafMatchesAPin(struct SolidSyslogMbedTlsStream
            ) == SOLIDSYSLOG_TLS_AUTHORISATION_MATCHED;
 }
 
-/* An algorithm this pack does not name resolves to MBEDTLS_MD_NONE, which has
- * no md_info - so a hash added to Core and not handled here refuses the peer
- * rather than being digested as something else. */
-static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm)
-{
-    mbedtls_md_type_t type = MBEDTLS_MD_NONE;
-    if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1)
-    {
-        type = MBEDTLS_MD_SHA1;
-    }
-    else if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA256)
-    {
-        type = MBEDTLS_MD_SHA256;
-    }
-    else
-    {
-        /* Left as MBEDTLS_MD_NONE. */
-    }
-    return type;
-}
-
 /* A hash compiled out of Mbed TLS has no md_info, which is the Core callback's
  * "algorithm cannot be computed" and refuses the peer. */
 static bool MbedTlsStream_DigestCertificate(
@@ -378,6 +357,27 @@ static bool MbedTlsStream_DigestCertificate(
     }
 
     return ok;
+}
+
+/* An algorithm this pack does not name resolves to MBEDTLS_MD_NONE, which has
+ * no md_info - so a hash added to Core and not handled here refuses the peer
+ * rather than being digested as something else. */
+static inline mbedtls_md_type_t MbedTlsStream_MdTypeFor(enum SolidSyslogTlsHashAlgorithm algorithm)
+{
+    mbedtls_md_type_t type = MBEDTLS_MD_NONE;
+    if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA1)
+    {
+        type = MBEDTLS_MD_SHA1;
+    }
+    else if (algorithm == SOLIDSYSLOG_TLS_HASH_SHA256)
+    {
+        type = MBEDTLS_MD_SHA256;
+    }
+    else
+    {
+        /* Left as MBEDTLS_MD_NONE. */
+    }
+    return type;
 }
 
 /* Answers every Install, so the integrator is always told when the credential
