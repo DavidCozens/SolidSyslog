@@ -136,14 +136,48 @@ TEST(SolidSyslogTlsFingerprint, RejectsADigestLongerThanTheAlgorithmProduces)
     ));
 }
 
-TEST(SolidSyslogTlsFingerprint, RejectsLowercaseHexPairs)
+/* RFC 5425 4.2.2 publishes a fingerprint in uppercase, but one reaches this
+   library through an engineer transcribing it, so either case is accepted. */
+TEST(SolidSyslogTlsFingerprint, ParsesLowercaseHexPairs)
 {
     struct SolidSyslogTlsFingerprint fingerprint = {};
 
-    CHECK_FALSE(SolidSyslogTlsFingerprint_Parse(
+    CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
         "sha-1:e1:2d:53:2b:7c:6b:8a:29:a2:76:c8:64:36:0b:08:4b:7a:f1:9e:9d",
         &fingerprint
     ));
+
+    BYTES_EQUAL(0xE1, fingerprint.Digest[0]);
+    BYTES_EQUAL(0x9D, fingerprint.Digest[19]);
+}
+
+TEST(SolidSyslogTlsFingerprint, ParsesHexPairsOfMixedCase)
+{
+    struct SolidSyslogTlsFingerprint fingerprint = {};
+
+    CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
+        "sha-1:e1:2D:53:2b:7C:6b:8A:29:a2:76:C8:64:36:0B:08:4b:7A:f1:9E:9d",
+        &fingerprint
+    ));
+
+    BYTES_EQUAL(0xE1, fingerprint.Digest[0]);
+    BYTES_EQUAL(0x9D, fingerprint.Digest[19]);
+}
+
+TEST(SolidSyslogTlsFingerprint, ParsesEveryLowercaseHexDigit)
+{
+    struct SolidSyslogTlsFingerprint fingerprint = {};
+    static const uint8_t expected[32] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x10, 0x32, 0x54,
+                                         0x76, 0x98, 0xBA, 0xDC, 0xFE, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB,
+                                         0xCD, 0xEF, 0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE};
+
+    CHECK_TRUE(SolidSyslogTlsFingerprint_Parse(
+        "sha-256:01:23:45:67:89:ab:cd:ef:10:32:54:76:98:ba:dc:fe:"
+        "01:23:45:67:89:ab:cd:ef:10:32:54:76:98:ba:dc:fe",
+        &fingerprint
+    ));
+
+    MEMCMP_EQUAL(expected, fingerprint.Digest, sizeof(expected));
 }
 
 TEST(SolidSyslogTlsFingerprint, RejectsACharacterThatIsNotHex)

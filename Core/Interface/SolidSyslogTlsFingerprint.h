@@ -42,10 +42,10 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     };
 
     /** Parses @p text in the RFC 5425 §4.2.2 form - an IANA hash label, a
-     *  colon, then the digest as colon-separated uppercase hex pairs - into
-     *  @p out. Returns false, leaving @p out unspecified, where the label is
-     *  not a supported algorithm or the digest is not that algorithm's length
-     *  in exactly that form. */
+     *  colon, then the digest as colon-separated hex pairs, in either case -
+     *  into @p out. Returns false, leaving @p out unspecified, where the label
+     *  is not a supported algorithm or the digest is not that algorithm's
+     *  length in exactly that form. */
     bool SolidSyslogTlsFingerprint_Parse(const char* text, struct SolidSyslogTlsFingerprint* out);
 
     /** The worst state found in a pin list: a pin that will not parse

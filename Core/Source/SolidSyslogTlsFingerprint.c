@@ -143,6 +143,10 @@ static inline bool TlsFingerprint_ParseHexDigit(char digit, uint8_t* value)
     {
         *value = (uint8_t) (((uint8_t) digit - (uint8_t) 'A') + 10U);
     }
+    else if ((digit >= 'a') && (digit <= 'f'))
+    {
+        *value = (uint8_t) (((uint8_t) digit - (uint8_t) 'a') + 10U);
+    }
     else
     {
         parsed = false;

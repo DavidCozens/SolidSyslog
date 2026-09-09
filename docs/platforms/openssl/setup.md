@@ -124,4 +124,4 @@ A pin is read when the connection is made, so one that is not in the RFC 5425
 form is reported on the first connect and not before. `openssl x509 -noout
 -fingerprint -sha256 -in collector.pem` prints the digest in the byte form the
 pin wants; the label it needs is `sha-256:`, hyphenated, in place of what
-OpenSSL prints.
+OpenSSL prints. Hex digits may be upper or lower case.
