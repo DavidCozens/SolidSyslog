@@ -1,8 +1,5 @@
 #include "MbedTlsTestCert.h"
 
-#include <mbedtls/md.h>
-#include <string.h>
-
 #include <assert.h>
 #include <mbedtls/asn1.h>
 #include <mbedtls/ctr_drbg.h>
