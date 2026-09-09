@@ -209,11 +209,11 @@ static inline enum SolidSyslogTlsAuthorisation TlsFingerprint_AuthoriseOne(
 {
     enum SolidSyslogTlsAuthorisation verdict = SOLIDSYSLOG_TLS_AUTHORISATION_MALFORMED;
     struct SolidSyslogTlsFingerprint pin;
-    uint8_t peerDigest[SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX];
-    size_t peerLength = 0;
 
     if (SolidSyslogTlsFingerprint_Parse(fingerprint, &pin))
     {
+        uint8_t peerDigest[SOLIDSYSLOG_TLS_FINGERPRINT_DIGEST_MAX];
+        size_t peerLength = 0;
         verdict = SOLIDSYSLOG_TLS_AUTHORISATION_DIGEST_UNAVAILABLE;
 
         if (digest(context, pin.Algorithm, peerDigest, &peerLength))
