@@ -57,6 +57,7 @@ static bool LwipRawTcpStream_Open(struct SolidSyslogStream* base, const struct S
 static bool LwipRawTcpStream_Send(struct SolidSyslogStream* base, const void* buffer, size_t size);
 static SolidSyslogSsize LwipRawTcpStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static void LwipRawTcpStream_Close(struct SolidSyslogStream* base);
+static uint32_t LwipRawTcpStream_Version(struct SolidSyslogStream* base);
 
 static inline struct SolidSyslogLwipRawTcpStream* LwipRawTcpStream_SelfFromBase(struct SolidSyslogStream* base);
 static inline struct SolidSyslogLwipRawTcpStream* LwipRawTcpStream_SelfFromArg(void* arg);
@@ -102,7 +103,8 @@ void SolidSyslogLwipRawTcpStream_Initialise(
             {.Open = LwipRawTcpStream_Open,
              .Send = LwipRawTcpStream_Send,
              .Read = LwipRawTcpStream_Read,
-             .Close = LwipRawTcpStream_Close},
+             .Close = LwipRawTcpStream_Close,
+             .Version = LwipRawTcpStream_Version},
         .Config =
             {.GetConnectTimeoutMs = LwipRawTcpStream_NullConnectTimeoutGetter,
              .ConnectTimeoutContext = NULL,
@@ -458,6 +460,12 @@ static void LwipRawTcpStream_Close(struct SolidSyslogStream* base)
         struct LwipRawTcpStreamCall call = {.Self = self};
         SolidSyslogLwipRaw_Marshal(LwipRawTcpStream_DoClose, &call);
     }
+}
+
+static uint32_t LwipRawTcpStream_Version(struct SolidSyslogStream* base)
+{
+    (void) base;
+    return 0U;
 }
 
 /* Close touches lwIP only if there is a pcb to close or queued pbufs to

@@ -844,16 +844,15 @@ TEST(SolidSyslogStreamSenderBadSetup, DisconnectOnBadSetupSenderDoesNotCrash)
 // boolean directly, isolating the edge logic from any platform stack.
 
 // clang-format off
-TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
+TEST_BASE(StreamSenderOverStreamFakeTestBase)
 {
     struct SolidSyslogResolver*          resolver = nullptr;
     struct SolidSyslogStream*            stream   = nullptr;
     struct SolidSyslogAddress*           address  = nullptr;
     struct SolidSyslogStreamSenderConfig config{};
     struct SolidSyslogSender*            sender   = nullptr;
-    int                                  sentinel = 0;
 
-    void setup() override
+    void setupSenderOverStreamFake()
     {
         SocketFake_Reset();
         endpointGetHost = GetHost;
@@ -864,10 +863,9 @@ TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
         address  = SolidSyslogPosixAddress_Create();
         config   = {resolver, stream, address, TestEndpoint, TestEndpointVersion, nullptr};
         sender   = SolidSyslogStreamSender_Create(&config);
-        ErrorHandlerFake_Install(&sentinel);
     }
 
-    void teardown() override
+    void teardownSenderOverStreamFake() const
     {
         SolidSyslogStreamSender_Destroy(sender);
         SolidSyslogPosixAddress_Destroy(address);
@@ -878,6 +876,22 @@ TEST_GROUP(SolidSyslogStreamSenderDeliveryHealth)
     void Send() const
     {
         SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN);
+    }
+};
+
+TEST_GROUP_BASE(SolidSyslogStreamSenderDeliveryHealth, StreamSenderOverStreamFakeTestBase)
+{
+    int sentinel = 0;
+
+    void setup() override
+    {
+        setupSenderOverStreamFake();
+        ErrorHandlerFake_Install(&sentinel);
+    }
+
+    void teardown() override
+    {
+        teardownSenderOverStreamFake();
     }
 };
 
@@ -925,4 +939,40 @@ TEST(SolidSyslogStreamSenderDeliveryHealth, StayingUpReportsNothing)
     Send();
     Send();
     CALLED_FAKE(ErrorHandlerFake_Handle, NEVER);
+}
+
+// The stream reports its own configuration version through the Stream vtable,
+// so a rotated credential or a changed pinned peer reconnects on the next Send
+// without the integrator calling Disconnect from off the servicing thread.
+// StreamFake_SetVersion stands in for whatever the integrator bumps.
+
+// clang-format off
+TEST_GROUP_BASE(SolidSyslogStreamSenderStreamVersion, StreamSenderOverStreamFakeTestBase)
+{
+    void setup() override
+    {
+        setupSenderOverStreamFake();
+    }
+
+    void teardown() override
+    {
+        teardownSenderOverStreamFake();
+    }
+};
+
+// clang-format on
+
+TEST(SolidSyslogStreamSenderStreamVersion, VersionChangeBetweenSendsReopensTheStream)
+{
+    Send();
+    StreamFake_SetVersion(stream, 1);
+    Send();
+    LONGS_EQUAL(2, StreamFake_OpenCallCount(stream));
+}
+
+TEST(SolidSyslogStreamSenderStreamVersion, SendStillSucceedsAcrossTheReconnect)
+{
+    Send();
+    StreamFake_SetVersion(stream, 1);
+    CHECK_TRUE(SolidSyslogSender_Send(sender, TEST_MESSAGE, TEST_MESSAGE_LEN));
 }

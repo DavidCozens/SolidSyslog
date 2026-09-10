@@ -623,3 +623,8 @@ TEST(SolidSyslogPlusTcpTcpStreamPool, DestroyOfStaleHandleReportsWarning)
         SOLIDSYSLOG_PLUSTCP_TCP_STREAM_ERROR_UNKNOWN_DESTROY
     );
 }
+
+TEST(SolidSyslogPlusTcpTcpStream, VersionIsAlwaysZeroBecauseNothingChangesAtRuntime)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
+}

@@ -37,7 +37,9 @@ enum
 };
 
 static uint32_t OpenSslStream_NullHandshakeTimeoutGetter(void* context);
+static uint32_t OpenSslStream_NullVersion(void* context);
 static inline bool OpenSslStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogOpenSslStreamConfig* config);
+static inline bool OpenSslStream_ConfigProvidesVersion(const struct SolidSyslogOpenSslStreamConfig* config);
 static inline uint32_t OpenSslStream_ResolveHandshakeTimeoutMs(struct SolidSyslogOpenSslStream* self);
 
 struct SolidSyslogAddress;
@@ -46,6 +48,7 @@ static inline struct SolidSyslogOpenSslStream* OpenSslStream_SelfFromBase(struct
 
 static inline bool OpenSslStream_AttachTransportBio(struct SolidSyslogOpenSslStream* self);
 static inline void OpenSslStream_Close(struct SolidSyslogStream* base);
+static uint32_t OpenSslStream_Version(struct SolidSyslogStream* base);
 static inline bool OpenSslStream_ConfigureCipherList(SSL_CTX* ctx, const char* cipherList);
 static inline bool OpenSslStream_ConfigureExpectedHostname(struct SolidSyslogOpenSslStream* self);
 static inline bool OpenSslStream_ConfigureProtocolFloor(SSL_CTX* ctx);
@@ -104,6 +107,7 @@ void SolidSyslogOpenSslStream_Initialise(
     self->Base.Send = OpenSslStream_Send;
     self->Base.Read = OpenSslStream_Read;
     self->Base.Close = OpenSslStream_Close;
+    self->Base.Version = OpenSslStream_Version;
     self->Config = *config;
     if (OpenSslStream_ConfigProvidesHandshakeGetter(config) == false)
     {
@@ -112,6 +116,11 @@ void SolidSyslogOpenSslStream_Initialise(
          * runtime tuning. */
         self->Config.GetHandshakeTimeoutMs = OpenSslStream_NullHandshakeTimeoutGetter;
         self->Config.HandshakeTimeoutContext = NULL;
+    }
+    if (OpenSslStream_ConfigProvidesVersion(config) == false)
+    {
+        self->Config.Version = OpenSslStream_NullVersion;
+        self->Config.VersionContext = NULL;
     }
     self->Ctx = NULL;
     self->Ssl = NULL;
@@ -155,6 +164,12 @@ static inline void OpenSslStream_Close(struct SolidSyslogStream* base)
     OpenSslStream_ReleaseSslContext(self);
     OpenSslStream_ReleaseCredentials(self);
     SolidSyslogStream_Close(self->Config.Transport);
+}
+
+static uint32_t OpenSslStream_Version(struct SolidSyslogStream* base)
+{
+    struct SolidSyslogOpenSslStream* self = OpenSslStream_SelfFromBase(base);
+    return self->Config.Version(self->Config.VersionContext);
 }
 
 static inline void OpenSslStream_ReleaseHandshakeState(struct SolidSyslogOpenSslStream* self)
@@ -670,6 +685,20 @@ static uint32_t OpenSslStream_NullHandshakeTimeoutGetter(void* context)
 static inline bool OpenSslStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogOpenSslStreamConfig* config)
 {
     return (config != NULL) && (config->GetHandshakeTimeoutMs != NULL);
+}
+
+/* Null Object substituted at Initialise when the integrator installs no version
+ * function - reports an unchanging configuration, so the sender never reconnects
+ * on this stream's account. */
+static uint32_t OpenSslStream_NullVersion(void* context)
+{
+    (void) context;
+    return 0U;
+}
+
+static inline bool OpenSslStream_ConfigProvidesVersion(const struct SolidSyslogOpenSslStreamConfig* config)
+{
+    return (config != NULL) && (config->Version != NULL);
 }
 
 /* Bridges the integrator-installed getter (or the Null Object substituted at

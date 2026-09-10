@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "SolidSyslogExternC.h"
 #include "SolidSyslogStream.h"
@@ -27,6 +28,7 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     void StreamFake_SetOpenFails(struct SolidSyslogStream * stream, bool fails);
     void StreamFake_SetSendFails(struct SolidSyslogStream * stream, bool fails);
     int StreamFake_CloseCallCount(struct SolidSyslogStream * stream);
+    void StreamFake_SetVersion(struct SolidSyslogStream * stream, uint32_t value);
 
 SOLIDSYSLOG_EXTERN_C_END
 

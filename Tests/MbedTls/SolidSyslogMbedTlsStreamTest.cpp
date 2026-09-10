@@ -89,6 +89,23 @@ extern "C" uint32_t FakeGetHandshakeTimeoutMs(void* context)
     FakeGetHandshakeTimeoutMs_LastContext = context;
     return FakeGetHandshakeTimeoutMs_ReturnValue;
 }
+
+/* Stands in for whatever the integrator bumps when the credentials or the
+ * expected peer name change. */
+uint32_t FakeVersion_ReturnValue = 0;
+void* FakeVersion_LastContext = nullptr;
+
+void FakeVersion_Reset()
+{
+    FakeVersion_ReturnValue = 0;
+    FakeVersion_LastContext = reinterpret_cast<void*>(0x1U); /* sentinel - overwritten on first call */
+}
+
+extern "C" uint32_t FakeVersion(void* context)
+{
+    FakeVersion_LastContext = context;
+    return FakeVersion_ReturnValue;
+}
 } // namespace
 
 // clang-format off
@@ -106,6 +123,7 @@ TEST_GROUP(SolidSyslogMbedTlsStream)
         MbedTlsCredentialsFake_Reset();
         ErrorHandlerFake_Install(nullptr);
         FakeGetHandshakeTimeoutMs_Reset();
+        FakeVersion_Reset();
         NoOpSleepCallCount = 0;
         g_lastSleepMs = 0;
         transport = StreamFake_Create();
@@ -1261,4 +1279,30 @@ TEST(SolidSyslogMbedTlsStream, OpenConnectsWhenTheVerdictIsClean)
     MbedTlsFake_SetSslVerifyResult(0);
 
     CHECK_TRUE(SolidSyslogStream_Open(handle, addr));
+}
+
+TEST(SolidSyslogMbedTlsStream, VersionReportsTheConfiguredFunctionsValue)
+{
+    FakeVersion_ReturnValue = 7U;
+    config.Version = FakeVersion;
+    ReCreateHandleWithUpdatedConfig();
+
+    LONGS_EQUAL(7, SolidSyslogStream_Version(handle));
+}
+
+TEST(SolidSyslogMbedTlsStream, VersionFunctionReceivesVersionContext)
+{
+    int context = 0;
+    config.Version = FakeVersion;
+    config.VersionContext = &context;
+    ReCreateHandleWithUpdatedConfig();
+
+    SolidSyslogStream_Version(handle);
+
+    POINTERS_EQUAL(&context, FakeVersion_LastContext);
+}
+
+TEST(SolidSyslogMbedTlsStream, VersionIsZeroWhenNoFunctionIsConfigured)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(handle));
 }

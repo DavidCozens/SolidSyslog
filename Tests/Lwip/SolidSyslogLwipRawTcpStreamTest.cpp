@@ -990,3 +990,8 @@ TEST(SolidSyslogLwipRawTcpStreamPool, DestroyOfStaleHandleReportsWarning)
         SOLIDSYSLOG_LWIPRAW_TCP_STREAM_ERROR_UNKNOWN_DESTROY
     );
 }
+
+TEST(SolidSyslogLwipRawTcpStream, VersionIsAlwaysZeroBecauseNothingChangesAtRuntime)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
+}

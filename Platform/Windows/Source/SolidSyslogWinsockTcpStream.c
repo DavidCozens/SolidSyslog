@@ -126,6 +126,7 @@ static bool WinsockTcpStream_Open(struct SolidSyslogStream* base, const struct S
 static bool WinsockTcpStream_Send(struct SolidSyslogStream* base, const void* buffer, size_t size);
 static SolidSyslogSsize WinsockTcpStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static void WinsockTcpStream_Close(struct SolidSyslogStream* base);
+static uint32_t WinsockTcpStream_Version(struct SolidSyslogStream* base);
 
 static inline struct SolidSyslogWinsockTcpStream* WinsockTcpStream_SelfFromBase(struct SolidSyslogStream* base);
 static inline bool WinsockTcpStream_ConfigProvidesGetter(const struct SolidSyslogWinsockTcpStreamConfig* config);
@@ -157,7 +158,8 @@ void SolidSyslogWinsockTcpStream_Initialise(
             {.Open = WinsockTcpStream_Open,
              .Send = WinsockTcpStream_Send,
              .Read = WinsockTcpStream_Read,
-             .Close = WinsockTcpStream_Close},
+             .Close = WinsockTcpStream_Close,
+             .Version = WinsockTcpStream_Version},
         .Config = {.GetConnectTimeoutMs = WinsockTcpStream_NullConnectTimeoutGetter, .ConnectTimeoutContext = NULL},
         .Fd = INVALID_SOCKET,
     };
@@ -205,6 +207,12 @@ static void WinsockTcpStream_Close(struct SolidSyslogStream* base)
         WinsockTcpStream_closesocket(self->Fd);
         self->Fd = INVALID_SOCKET;
     }
+}
+
+static uint32_t WinsockTcpStream_Version(struct SolidSyslogStream* base)
+{
+    (void) base;
+    return 0U;
 }
 
 static bool WinsockTcpStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr)

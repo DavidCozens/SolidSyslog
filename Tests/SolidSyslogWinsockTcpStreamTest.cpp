@@ -680,3 +680,8 @@ TEST(SolidSyslogWinsockTcpStream, DefaultPortMatchesRfc6587)
 {
     LONGS_EQUAL(601, SOLIDSYSLOG_TCP_DEFAULT_PORT);
 }
+
+TEST(SolidSyslogWinsockTcpStream, VersionIsAlwaysZeroBecauseNothingChangesAtRuntime)
+{
+    LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
+}

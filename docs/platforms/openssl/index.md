@@ -39,7 +39,9 @@ The `SSL_CTX` is rebuilt on every open and freed on close, and the credentials
 source is asked again each time. Nothing is held between connections. Rotation
 is therefore a replacement and a reconnection: put the new material in place,
 and it is in force on the next connection, either through ordinary reconnection
-after an outage or immediately by calling `SolidSyslogSender_Disconnect`.
+after an outage or immediately by moving the stream's configuration version.
+Nothing has to be freed to rotate the shipped source, which names a path that
+OpenSSL reads afresh on each connection, so the version is the whole of it.
 
 ## Where it differs from the contract
 

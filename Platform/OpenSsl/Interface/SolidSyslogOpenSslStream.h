@@ -31,6 +31,7 @@
 
 #include "SolidSyslogExternC.h"
 #include "SolidSyslogSleep.h"
+#include "SolidSyslogStream.h"
 #include "SolidSyslogTlsHandshakeTimeoutFunction.h"
 
 struct SolidSyslogStream;
@@ -38,7 +39,10 @@ struct SolidSyslogOpenSslCredentials;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
-    /** Wires SolidSyslogOpenSslStream to its transport, trust anchors, and identity. */
+    /** Wires SolidSyslogOpenSslStream to its transport, trust anchors, and identity.
+     *  Copied at Create, so a runtime change is made in what these fields point at -
+     *  rewrite the buffer, re-parse into the handle, hand back new material from the
+     *  Credentials - never by reassigning a field here. */
     struct SolidSyslogOpenSslStreamConfig
     {
         /** Underlying byte stream carrying the ciphertext; required - a NULL is
@@ -69,6 +73,14 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
          *  endpoint identity unchecked; no diagnostic. */
         const char* ServerName;
         const char* CipherList; /**< TLS 1.2 cipher list; NULL uses the OpenSSL default. */
+        /** Bumped by the integrator when anything above changes at runtime - the
+         *  Credentials, ServerName or CipherList. The sender polls it every Send and
+         *  reconnects on the next pass when it moves, so a rotation applies without
+         *  calling SolidSyslogSender_Disconnect. Polled from the servicing thread,
+         *  so it must be cheap and pure. NULL means this configuration never
+         *  changes. */
+        SolidSyslogStreamVersionFunction Version;
+        void* VersionContext; /**< Passed to Version unchanged; NULL is fine. */
     };
 
     /** Draw a TLS stream from the pool over the injected transport (see the file

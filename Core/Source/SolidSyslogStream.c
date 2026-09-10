@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "SolidSyslogStreamDefinition.h"
 #include "SolidSyslogStream.h"
@@ -28,4 +29,9 @@ SolidSyslogSsize SolidSyslogStream_Read(struct SolidSyslogStream* stream, void* 
 void SolidSyslogStream_Close(struct SolidSyslogStream* stream)
 {
     stream->Close(stream);
+}
+
+uint32_t SolidSyslogStream_Version(struct SolidSyslogStream* stream)
+{
+    return stream->Version(stream);
 }

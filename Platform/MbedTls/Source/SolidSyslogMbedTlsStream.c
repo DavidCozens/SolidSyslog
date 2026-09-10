@@ -37,7 +37,9 @@ enum
 struct SolidSyslogAddress;
 
 static uint32_t MbedTlsStream_NullHandshakeTimeoutGetter(void* context);
+static uint32_t MbedTlsStream_NullVersion(void* context);
 static inline bool MbedTlsStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogMbedTlsStreamConfig* config);
+static inline bool MbedTlsStream_ConfigProvidesVersion(const struct SolidSyslogMbedTlsStreamConfig* config);
 static inline uint32_t MbedTlsStream_ResolveHandshakeTimeoutMs(struct SolidSyslogMbedTlsStream* self);
 static inline struct SolidSyslogMbedTlsStream* MbedTlsStream_SelfFromBase(struct SolidSyslogStream* base);
 static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr);
@@ -72,6 +74,7 @@ static inline bool MbedTlsStream_IsHandshakeBudgetExhausted(uint32_t totalSleptM
 static inline bool MbedTlsStream_Send(struct SolidSyslogStream* base, const void* buffer, size_t size);
 static inline SolidSyslogSsize MbedTlsStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static inline void MbedTlsStream_Close(struct SolidSyslogStream* base);
+static uint32_t MbedTlsStream_Version(struct SolidSyslogStream* base);
 static int MbedTlsStream_BioSend(void* ctx, const unsigned char* buf, size_t len);
 static int MbedTlsStream_BioRecv(void* ctx, unsigned char* buf, size_t len);
 
@@ -85,6 +88,7 @@ void SolidSyslogMbedTlsStream_Initialise(
     self->Base.Send = MbedTlsStream_Send;
     self->Base.Read = MbedTlsStream_Read;
     self->Base.Close = MbedTlsStream_Close;
+    self->Base.Version = MbedTlsStream_Version;
     self->Config = *config;
     self->CredentialsInstalled = false;
     if (MbedTlsStream_ConfigProvidesHandshakeGetter(config) == false)
@@ -94,6 +98,11 @@ void SolidSyslogMbedTlsStream_Initialise(
          * runtime tuning. */
         self->Config.GetHandshakeTimeoutMs = MbedTlsStream_NullHandshakeTimeoutGetter;
         self->Config.HandshakeTimeoutContext = NULL;
+    }
+    if (MbedTlsStream_ConfigProvidesVersion(config) == false)
+    {
+        self->Config.Version = MbedTlsStream_NullVersion;
+        self->Config.VersionContext = NULL;
     }
     /* Eager init so mbedtls_*_free in Close is always safe - whether Open
      * was ever reached, whether it succeeded, or whether Close is being
@@ -116,6 +125,20 @@ static uint32_t MbedTlsStream_NullHandshakeTimeoutGetter(void* context)
 static inline bool MbedTlsStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogMbedTlsStreamConfig* config)
 {
     return (config != NULL) && (config->GetHandshakeTimeoutMs != NULL);
+}
+
+/* Null Object substituted at Initialise when the integrator installs no version
+ * function - reports an unchanging configuration, so the sender never reconnects
+ * on this stream's account. */
+static uint32_t MbedTlsStream_NullVersion(void* context)
+{
+    (void) context;
+    return 0U;
+}
+
+static inline bool MbedTlsStream_ConfigProvidesVersion(const struct SolidSyslogMbedTlsStreamConfig* config)
+{
+    return (config != NULL) && (config->Version != NULL);
 }
 
 /* Bridges the integrator-installed getter (or the Null Object substituted at
@@ -157,6 +180,12 @@ static inline void MbedTlsStream_Close(struct SolidSyslogStream* base)
     mbedtls_ssl_config_free(&self->SslConfig);
     MbedTlsStream_ReleaseCredentials(self);
     SolidSyslogStream_Close(self->Config.Transport);
+}
+
+static uint32_t MbedTlsStream_Version(struct SolidSyslogStream* base)
+{
+    struct SolidSyslogMbedTlsStream* self = MbedTlsStream_SelfFromBase(base);
+    return self->Config.Version(self->Config.VersionContext);
 }
 
 static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr)
