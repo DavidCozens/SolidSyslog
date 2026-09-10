@@ -46,7 +46,7 @@ struct SolidSyslogStream* SolidSyslogMbedTlsStream_Create(const struct SolidSysl
             MbedTlsStream_Report(
                 SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
                 SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-                SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_POOL_EXHAUSTED
+                SOLIDSYSLOG_TLS_STREAM_ERROR_POOL_EXHAUSTED
             );
         }
     }
@@ -61,7 +61,7 @@ static inline bool MbedTlsStream_IsValidConfig(const struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_CONFIG
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CONFIG
         );
     }
     else if (config->Transport == NULL)
@@ -69,7 +69,7 @@ static inline bool MbedTlsStream_IsValidConfig(const struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_TRANSPORT
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_TRANSPORT
         );
     }
     else if (config->Sleep == NULL)
@@ -77,7 +77,7 @@ static inline bool MbedTlsStream_IsValidConfig(const struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_SLEEP
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_SLEEP
         );
     }
     else if (config->Rng == NULL)
@@ -85,7 +85,7 @@ static inline bool MbedTlsStream_IsValidConfig(const struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_RNG
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_RNG
         );
     }
     else if (config->Credentials == NULL)
@@ -93,7 +93,7 @@ static inline bool MbedTlsStream_IsValidConfig(const struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_CREDENTIALS
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CREDENTIALS
         );
     }
     else
@@ -114,7 +114,7 @@ void SolidSyslogMbedTlsStream_Destroy(struct SolidSyslogStream* base)
         MbedTlsStream_Report(
             SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
             SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_UNKNOWN_DESTROY
+            SOLIDSYSLOG_TLS_STREAM_ERROR_UNKNOWN_DESTROY
         );
     }
 }

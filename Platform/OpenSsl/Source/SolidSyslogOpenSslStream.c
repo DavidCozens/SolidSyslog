@@ -89,7 +89,7 @@ static inline bool OpenSslStream_IsChainTrustError(int error);
 static inline bool OpenSslStream_InitSslSession(struct SolidSyslogOpenSslStream* self);
 static inline bool OpenSslStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr);
 static inline bool OpenSslStream_PerformHandshake(struct SolidSyslogOpenSslStream* self);
-static inline enum SolidSyslogOpenSslStreamErrors OpenSslStream_RefusalDetail(struct SolidSyslogOpenSslStream* self);
+static inline enum SolidSyslogTlsStreamErrors OpenSslStream_RefusalDetail(struct SolidSyslogOpenSslStream* self);
 static inline SolidSyslogSsize OpenSslStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static inline void OpenSslStream_ReleaseBioMethod(struct SolidSyslogOpenSslStream* self);
 static inline void OpenSslStream_ReleaseHandshakeState(struct SolidSyslogOpenSslStream* self);
@@ -246,7 +246,7 @@ static inline bool OpenSslStream_InitSslContext(struct SolidSyslogOpenSslStream*
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_CONTEXT_INIT_FAILED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_CONTEXT_INIT_FAILED
         );
     }
     return ok;
@@ -269,7 +269,7 @@ static inline bool OpenSslStream_InstallCredentials(struct SolidSyslogOpenSslStr
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_NO_PEER_AUTHORISATION
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NO_PEER_AUTHORISATION
         );
         ok = false;
     }
@@ -301,7 +301,7 @@ static inline bool OpenSslStream_FingerprintsAreUsable(const struct SolidSyslogT
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_MALFORMED
         );
         ok = false;
     }
@@ -310,7 +310,7 @@ static inline bool OpenSslStream_FingerprintsAreUsable(const struct SolidSyslogT
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_WARNING,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_SHA1
+            SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_SHA1
         );
     }
     else
@@ -523,7 +523,7 @@ static inline bool OpenSslStream_InitSslSession(struct SolidSyslogOpenSslStream*
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_SESSION_INIT_FAILED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_SESSION_INIT_FAILED
         );
     }
     return ok;
@@ -543,7 +543,7 @@ static inline bool OpenSslStream_AttachTransportBio(struct SolidSyslogOpenSslStr
         OpenSslStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_SESSION_INIT_FAILED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_SESSION_INIT_FAILED
         );
     }
     return ok;
@@ -670,7 +670,7 @@ static inline bool OpenSslStream_ConfigureExpectedHostname(struct SolidSyslogOpe
             OpenSslStream_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_OPENSSL_STREAM_ERROR_SERVER_NAME_NOT_SET
+                SOLIDSYSLOG_TLS_STREAM_ERROR_SERVER_NAME_NOT_SET
             );
         }
     }
@@ -682,7 +682,7 @@ static inline bool OpenSslStream_ConfigureExpectedHostname(struct SolidSyslogOpe
             OpenSslStream_Report(
                 SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_OPENSSL_STREAM_ERROR_SERVER_NAME_NOT_SET
+                SOLIDSYSLOG_TLS_STREAM_ERROR_SERVER_NAME_NOT_SET
             );
         }
     }
@@ -792,7 +792,7 @@ static inline bool OpenSslStream_PerformHandshake(struct SolidSyslogOpenSslStrea
                 OpenSslStream_Report(
                     SOLIDSYSLOG_SEVERITY_WARNING,
                     SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
-                    SOLIDSYSLOG_OPENSSL_STREAM_ERROR_HANDSHAKE_TIMEOUT
+                    SOLIDSYSLOG_TLS_STREAM_ERROR_HANDSHAKE_TIMEOUT
                 );
                 done = true;
             }
@@ -811,29 +811,29 @@ static inline bool OpenSslStream_PerformHandshake(struct SolidSyslogOpenSslStrea
  * produced it rather than the handshake that carried it. A verification failure
  * this does not name individually reads as untrusted: the certificate did not
  * validate, which is what the integrator has to act on. */
-static inline enum SolidSyslogOpenSslStreamErrors OpenSslStream_RefusalDetail(struct SolidSyslogOpenSslStream* self)
+static inline enum SolidSyslogTlsStreamErrors OpenSslStream_RefusalDetail(struct SolidSyslogOpenSslStream* self)
 {
-    enum SolidSyslogOpenSslStreamErrors detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_HANDSHAKE_REJECTED;
+    enum SolidSyslogTlsStreamErrors detail = SOLIDSYSLOG_TLS_STREAM_ERROR_HANDSHAKE_REJECTED;
     long verdict = SSL_get_verify_result(self->Ssl);
     if (verdict == X509_V_ERR_APPLICATION_VERIFICATION)
     {
-        detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
     }
     else if (verdict == X509_V_ERR_HOSTNAME_MISMATCH)
     {
-        detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_NAME_MISMATCHED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
     }
     else if (verdict == X509_V_ERR_CERT_HAS_EXPIRED)
     {
-        detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
     }
     else if (verdict == X509_V_ERR_CERT_NOT_YET_VALID)
     {
-        detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
     }
     else if (verdict != X509_V_OK)
     {
-        detail = SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED;
     }
     else
     {

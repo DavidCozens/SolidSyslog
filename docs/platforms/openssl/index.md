@@ -43,6 +43,17 @@ after an outage or immediately by moving the stream's configuration version.
 Nothing has to be freed to rotate the shipped source, which names a path that
 OpenSSL reads afresh on each connection, so the version is the whole of it.
 
+## What it reports
+
+Faults are reported with the portable TLS-stream detail codes, so a handler
+written against them keeps working if the TLS backend underneath changes. What
+stays specific to this pack is `event->Source`, which names it as the reporter.
+
+Two of those codes describe faults this pack cannot have, so it never raises
+them: `DEFAULTS_NOT_APPLIED`, because nothing here applies a library preset, and
+`NULL_RNG`, because OpenSSL carries its own entropy source and the configuration
+asks for none.
+
 ## What a connection is made with
 
 The stream asks for a profile once per connection, and takes the expected peer

@@ -267,7 +267,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertIsExpired)
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertIsNotYetValid)
@@ -280,7 +280,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertIsNotYetValid)
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertHostnameDoesNotMatch)
@@ -292,7 +292,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertHostnameDoesNotMat
     buildScenario(certConfig); /* the profile's ServerName defaults to "localhost" */
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_NAME_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenClientDoesNotTrustServerCert)
@@ -312,7 +312,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenClientDoesNotTrustServerCert
     TlsTestCert_WritePemToFile(&untrusted, caPath);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenCipherListIsUnsupported)
@@ -448,7 +448,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertMatchesNoPin)
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
@@ -463,7 +463,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenTh
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinAgree)
@@ -486,7 +486,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheChainIsTrustedButNoPinMat
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
 TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstASha1PinAndWarnsOfIt)
@@ -503,7 +503,7 @@ TEST(OpenSslStreamIntegration, HandshakeSucceedsAgainstASha1PinAndWarnsOfIt)
     LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_WARNING, LastCapturedError.Severity);
     POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
     UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
-    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_SHA1, LastCapturedError.Detail);
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_SHA1, LastCapturedError.Detail);
 }
 
 TEST(OpenSslStreamIntegration, OpenFailsWhenAPinIsMalformed)
@@ -519,7 +519,7 @@ TEST(OpenSslStreamIntegration, OpenFailsWhenAPinIsMalformed)
     LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_ERROR, LastCapturedError.Severity);
     POINTERS_EQUAL(&SolidSyslogOpenSslStreamErrorSource, LastCapturedError.Source);
     UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
-    LONGS_EQUAL(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_FINGERPRINT_MALFORMED, LastCapturedError.Detail);
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_MALFORMED, LastCapturedError.Detail);
 }
 
 /* A collector that presents its issuer alongside its leaf is the ordinary
@@ -543,7 +543,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenALeafPresentedWithItsIssuerM
     buildScenario(issuedCertConfig());
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
 /* The waiver is for a peer authorised by pin alone. Where trust anchors are
@@ -562,5 +562,5 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTrustAnchorsAreConfiguredAnd
     TlsTestCert_WritePemToFile(&stranger, caPath);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
 }

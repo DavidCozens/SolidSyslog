@@ -46,7 +46,7 @@ void SolidSyslogOpenSslStream_Cleanup(struct SolidSyslogStream* base);
 static inline void OpenSslStream_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogOpenSslStreamErrors code
+    enum SolidSyslogTlsStreamErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogOpenSslStreamErrorSource, category, (int32_t) code);

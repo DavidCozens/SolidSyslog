@@ -73,6 +73,17 @@ affect the ones you build elsewhere. A device that already uses Mbed TLS for
 firmware update or a vendor cloud SDK keeps that configuration intact, and the
 claim can be checked against the directory.
 
+## What it reports
+
+Faults are reported with the portable TLS-stream detail codes, so a handler
+written against them keeps working if the TLS backend underneath changes. What
+stays specific to this pack is `event->Source`, which names it as the reporter.
+
+One of those codes describes a fault this pack cannot have, so it never raises
+it: `CONTEXT_INIT_FAILED`. There is no separate context to build here - the
+configuration is brought up from a library preset, and a failure at that point is
+`DEFAULTS_NOT_APPLIED`.
+
 ## What a connection is made with
 
 The stream asks for a profile once per connection, and takes the expected peer

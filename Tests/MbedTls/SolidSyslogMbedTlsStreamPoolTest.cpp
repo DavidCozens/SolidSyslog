@@ -112,7 +112,7 @@ TEST(SolidSyslogMbedTlsStreamPool, CreateWithNullConfigReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_CONFIG
+        SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CONFIG
     );
 }
 
@@ -136,7 +136,7 @@ TEST(SolidSyslogMbedTlsStreamPool, CreateWithNullTransportReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_TRANSPORT
+        SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_TRANSPORT
     );
 }
 
@@ -160,7 +160,7 @@ TEST(SolidSyslogMbedTlsStreamPool, CreateWithNullSleepReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_SLEEP
+        SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_SLEEP
     );
 }
 
@@ -184,7 +184,7 @@ TEST(SolidSyslogMbedTlsStreamPool, CreateWithNullRngReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_RNG
+        SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_RNG
     );
 }
 
@@ -208,7 +208,7 @@ TEST(SolidSyslogMbedTlsStreamPool, CreateWithNullCredentialsReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NULL_CREDENTIALS
+        SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CREDENTIALS
     );
 }
 
@@ -242,7 +242,7 @@ TEST(SolidSyslogMbedTlsStreamPool, ExhaustedCreateReportsError)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_POOL_EXHAUSTED
+        SOLIDSYSLOG_TLS_STREAM_ERROR_POOL_EXHAUSTED
     );
 }
 
@@ -309,7 +309,7 @@ TEST(SolidSyslogMbedTlsStreamPool, DestroyOfUnknownHandleReportsWarning)
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_UNKNOWN_DESTROY
+        SOLIDSYSLOG_TLS_STREAM_ERROR_UNKNOWN_DESTROY
     );
 }
 
@@ -326,6 +326,6 @@ TEST(SolidSyslogMbedTlsStreamPool, DestroyOfStaleHandleReportsWarning)
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsStreamErrorSource,
         SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_UNKNOWN_DESTROY
+        SOLIDSYSLOG_TLS_STREAM_ERROR_UNKNOWN_DESTROY
     );
 }

@@ -142,7 +142,11 @@ class ShipsManifest(unittest.TestCase):
         self.assertIn("(../../api/SolidSyslogMbedTlsStream_8h.md)", self.ships())
 
     def test_the_brief_is_the_headers_own_first_sentence(self):
-        self.assertIn("Error codes and Source identity for the MbedTlsStream adapter.", self.ships())
+        self.assertIn(
+            "Source identity for the MbedTlsStream adapter; the detail codes it reports are"
+            " the portable ones in SolidSyslogTlsStreamErrors.h.",
+            self.ships(),
+        )
 
     def test_a_brief_naming_a_standard_header_keeps_it(self):
         # <stdatomic.h> is an HTML tag to the Markdown renderer, so unescaped it
