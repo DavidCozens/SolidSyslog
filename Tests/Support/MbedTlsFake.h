@@ -104,6 +104,8 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     int MbedTlsFake_ConfMinTlsVersion(const struct mbedtls_ssl_config* conf);
 
     int MbedTlsFake_SslConfCaChainCallCount(void);
+    int MbedTlsFake_SslConfCiphersuitesCallCount(void);
+    const int* MbedTlsFake_LastSslConfCiphersuitesArg(void);
     struct mbedtls_ssl_config* MbedTlsFake_LastSslConfCaChainConfigArg(void);
     struct mbedtls_x509_crt* MbedTlsFake_LastSslConfCaChainArg(void);
     struct mbedtls_x509_crl* MbedTlsFake_LastSslConfCaChainCrlArg(void);

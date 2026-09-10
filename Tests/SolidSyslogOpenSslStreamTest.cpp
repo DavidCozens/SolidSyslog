@@ -94,6 +94,26 @@ extern "C" uint32_t FakeVersion(void* context)
     FakeVersion_LastContext = context;
     return FakeVersion_ReturnValue;
 }
+
+/* The TLS profile the stream pulls at Open. Tests set the fields they care
+ * about; anything left alone is what an integrator would leave to the library. */
+struct SolidSyslogOpenSslProfile FakeProfile_Value;
+int FakeProfile_CallCount = 0;
+void* FakeProfile_LastContext = nullptr;
+
+void FakeProfile_Reset()
+{
+    FakeProfile_Value = {};
+    FakeProfile_CallCount = 0;
+    FakeProfile_LastContext = reinterpret_cast<void*>(0x1U); /* sentinel - overwritten on first call */
+}
+
+extern "C" void FakeProfile(struct SolidSyslogOpenSslProfile* profile, void* context)
+{
+    FakeProfile_CallCount++;
+    FakeProfile_LastContext = context;
+    *profile = FakeProfile_Value;
+}
 } // namespace
 
 // clang-format off
@@ -110,6 +130,7 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         ErrorHandlerFake_Install(nullptr);
         FakeGetHandshakeTimeoutMs_Reset();
         FakeVersion_Reset();
+        FakeProfile_Reset();
         NoOpSleepCallCount = 0;
         g_lastSleepMs    = 0;
         transport        = StreamFake_Create();
@@ -117,6 +138,7 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         config.Sleep     = NoOpSleep;
         OpenSslCredentialsFake_Reset();
         config.Credentials = OpenSslCredentialsFake_Get();
+        config.Profile     = FakeProfile;
         stream = SolidSyslogOpenSslStream_Create(&config);
         addr = AddressFake_Get();
     }
@@ -138,7 +160,7 @@ TEST_GROUP(SolidSyslogOpenSslStream)
         StreamFake_Destroy(transport);
     }
 
-    /* Tests needing config tweaks (CipherList, ServerName, ...)
+    /* Tests needing config tweaks (Credentials, Rng, ...)
      * call this to release setup()'s pool slot, mutate `config`, then re-Create.
      * Fully resets the fixture (transport, OpenSslFake counters, error handler)
      * so the test body observes counts from this Open onwards only - matters
@@ -155,11 +177,11 @@ TEST_GROUP(SolidSyslogOpenSslStream)
     }
 
     /* Arrange a peer whose certificate OpenSSL refused with `verifyResult`.
-     * ServerName is set so the refusal is the only error source - a NULL one
+     * ServerName is supplied so the refusal is the only error source - an unset one
      * would also emit the unverified-peer WARNING. */
     void ArrangeCertificateVerificationFailure(long verifyResult)
     {
-        config.ServerName = "logs.example";
+        FakeProfile_Value.ServerName = "logs.example";
         ReCreateStreamWithUpdatedConfig();
         OpenSslFake_SetConnectFails(true);
         OpenSslFake_SetGetErrorReturn(SSL_ERROR_SSL);
@@ -314,7 +336,7 @@ TEST(SolidSyslogOpenSslStream, OpenSetsTls12Floor)
 
 TEST(SolidSyslogOpenSslStream, OpenPassesCipherListToSslCtx)
 {
-    config.CipherList = "ECDHE+AESGCM";
+    FakeProfile_Value.CipherList = "ECDHE+AESGCM";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     STRCMP_EQUAL("ECDHE+AESGCM", OpenSslFake_LastCipherList());
@@ -328,7 +350,7 @@ TEST(SolidSyslogOpenSslStream, OpenSkipsCipherListSetupWhenNotConfigured)
 
 TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenCipherListRejected)
 {
-    config.CipherList = "not-a-real-cipher";
+    FakeProfile_Value.CipherList = "not-a-real-cipher";
     ReCreateStreamWithUpdatedConfig();
     OpenSslFake_SetCipherListFails(true);
     CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
@@ -341,11 +363,38 @@ TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenCipherListRejected)
 
 TEST(SolidSyslogOpenSslStream, CipherListFailureFreesCtx)
 {
-    config.CipherList = "not-a-real-cipher";
+    FakeProfile_Value.CipherList = "not-a-real-cipher";
     ReCreateStreamWithUpdatedConfig();
     OpenSslFake_SetCipherListFails(true);
     SolidSyslogStream_Open(stream, addr);
     CALLED_FAKE(OpenSslFake_CtxFree, ONCE);
+}
+
+TEST(SolidSyslogOpenSslStream, OpenPassesCipherSuitesToSslCtx)
+{
+    FakeProfile_Value.CipherSuites = "TLS_AES_256_GCM_SHA384";
+    ReCreateStreamWithUpdatedConfig();
+    SolidSyslogStream_Open(stream, addr);
+    STRCMP_EQUAL("TLS_AES_256_GCM_SHA384", OpenSslFake_LastCipherSuites());
+}
+
+TEST(SolidSyslogOpenSslStream, OpenSkipsCipherSuitesSetupWhenNotConfigured)
+{
+    SolidSyslogStream_Open(stream, addr);
+    CALLED_FAKE(OpenSslFake_SetCipherSuites, NEVER);
+}
+
+TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenCipherSuitesRejected)
+{
+    FakeProfile_Value.CipherSuites = "NOT-A-REAL-SUITE";
+    ReCreateStreamWithUpdatedConfig();
+    OpenSslFake_SetCipherSuitesFails(true);
+    CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
+        SOLIDSYSLOG_OPENSSL_STREAM_ERROR_CONTEXT_INIT_FAILED
+    );
 }
 
 TEST(SolidSyslogOpenSslStream, OpenCreatesSslSession)
@@ -396,9 +445,9 @@ TEST(SolidSyslogOpenSslStream, OpenPassesSslToConnect)
     POINTERS_EQUAL(OpenSslFake_LastSslReturned(), OpenSslFake_LastConnectSslArg());
 }
 
-TEST(SolidSyslogOpenSslStream, OpenSetsSniHostnameFromConfig)
+TEST(SolidSyslogOpenSslStream, OpenSetsSniHostnameFromTheProfile)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     STRCMP_EQUAL("logs.example", OpenSslFake_LastSniHostname());
@@ -406,7 +455,7 @@ TEST(SolidSyslogOpenSslStream, OpenSetsSniHostnameFromConfig)
 
 TEST(SolidSyslogOpenSslStream, OpenSetsExpectedCertHostname)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     STRCMP_EQUAL("logs.example", OpenSslFake_LastSet1Host());
@@ -414,14 +463,14 @@ TEST(SolidSyslogOpenSslStream, OpenSetsExpectedCertHostname)
 
 TEST(SolidSyslogOpenSslStream, OpenSkipsHostnameSetupWhenServerNameIsNull)
 {
-    /* Default config.ServerName is NULL */
+    /* The profile leaves ServerName unset. */
     SolidSyslogStream_Open(stream, addr);
     POINTERS_EQUAL(NULL, OpenSslFake_LastSet1Host());
 }
 
 TEST(SolidSyslogOpenSslStream, OpenWarnsWhenServerNameIsNull)
 {
-    /* Default config.ServerName is NULL - peer identity is unverified, which the
+    /* The profile leaves ServerName unset - peer identity is unverified, which the
      * library must surface rather than swallow (S12.28). */
     SolidSyslogStream_Open(stream, addr);
     CHECK_ERROR_REPORTED_ONCE(
@@ -443,7 +492,7 @@ TEST(SolidSyslogOpenSslStream, OpenStillConnectsWhenServerNameIsNull)
 TEST(SolidSyslogOpenSslStream, OpenDoesNotWarnWhenServerNameIsEmpty)
 {
     /* Empty string is the deliberate opt-out - no diagnostic. */
-    config.ServerName = "";
+    FakeProfile_Value.ServerName = "";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     CALLED_FAKE(ErrorHandlerFake_Handle, NEVER);
@@ -451,7 +500,7 @@ TEST(SolidSyslogOpenSslStream, OpenDoesNotWarnWhenServerNameIsEmpty)
 
 TEST(SolidSyslogOpenSslStream, OpenSkipsHostnameSetupWhenServerNameIsEmpty)
 {
-    config.ServerName = "";
+    FakeProfile_Value.ServerName = "";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     POINTERS_EQUAL(NULL, OpenSslFake_LastSet1Host());
@@ -459,7 +508,7 @@ TEST(SolidSyslogOpenSslStream, OpenSkipsHostnameSetupWhenServerNameIsEmpty)
 
 TEST(SolidSyslogOpenSslStream, OpenConnectsWhenServerNameIsEmpty)
 {
-    config.ServerName = "";
+    FakeProfile_Value.ServerName = "";
     ReCreateStreamWithUpdatedConfig();
     CHECK_TRUE(SolidSyslogStream_Open(stream, addr));
 }
@@ -714,7 +763,7 @@ TEST(SolidSyslogOpenSslStream, OpenPassesSameBioForReadAndWrite)
 
 TEST(SolidSyslogOpenSslStream, OpenPassesSslToSniCtrl)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     POINTERS_EQUAL(OpenSslFake_LastSslReturned(), OpenSslFake_LastSslCtrlSslArg());
@@ -722,7 +771,7 @@ TEST(SolidSyslogOpenSslStream, OpenPassesSslToSniCtrl)
 
 TEST(SolidSyslogOpenSslStream, OpenPassesSslFromNewToSet1Host)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     SolidSyslogStream_Open(stream, addr);
     POINTERS_EQUAL(OpenSslFake_LastSslReturned(), OpenSslFake_LastSet1HostSslArg());
@@ -774,7 +823,7 @@ TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenHandshakeFails)
      * OpenSslFake_SetConnectFails(true) returns -1 from SSL_connect and
      * SSL_get_error reports SSL_ERROR_SSL (the default for SetGetErrorReturn) -
      * a non-retryable hard error, which is the HANDSHAKE_REJECTED branch. */
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     OpenSslFake_SetConnectFails(true);
     OpenSslFake_SetGetErrorReturn(SSL_ERROR_SSL);
@@ -832,7 +881,7 @@ TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerCertificateIsNotTrusted)
 
 TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenSet1HostFails)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     OpenSslFake_SetSet1HostFails(true);
     CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
@@ -846,7 +895,7 @@ TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenSet1HostFails)
 
 TEST(SolidSyslogOpenSslStream, OpenReturnsFalseWhenSniHostnameSetupFails)
 {
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     OpenSslFake_SetSniHostnameFails(true);
     CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
@@ -1083,7 +1132,7 @@ TEST(SolidSyslogOpenSslStream, OpenFailsWhenHandshakeNeverCompletes)
     /* ServerName set so the handshake timeout is the only error source.
        SSL_connect always returns -1 with WANT_READ - handshake never makes
        progress, so the bounded budget should expire and Open returns false. */
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     ArrangePersistentHandshakeError(SSL_ERROR_WANT_READ);
     CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
@@ -1128,7 +1177,7 @@ TEST(SolidSyslogOpenSslStream, OpenFailsImmediatelyOnHardSslError)
 {
     /* ServerName set so the handshake hard error is the only error source.
        Non-WANT error (e.g. SSL_ERROR_SSL) is fail-fast - no retry budget burn. */
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     ArrangePersistentHandshakeError(SSL_ERROR_SSL);
     CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
@@ -1332,7 +1381,7 @@ TEST(SolidSyslogOpenSslStream, ASecondCloseDoesNotReleaseTheCredentialsAgain)
 TEST(SolidSyslogOpenSslStream, OpenFailsWhenAPinIsMalformed)
 {
     static const char* const pins[] = {"sha-256:AA"};
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     OpenSslCredentialsFake_SetFingerprints(pins, 1);
 
@@ -1347,7 +1396,7 @@ TEST(SolidSyslogOpenSslStream, OpenFailsWhenAPinIsMalformed)
 TEST(SolidSyslogOpenSslStream, OpenWarnsOfASha1Pin)
 {
     static const char* const pins[] = {"sha-1:E1:2D:53:2B:7C:6B:8A:29:A2:76:C8:64:36:0B:08:4B:7A:F1:9E:9D"};
-    config.ServerName = "logs.example";
+    FakeProfile_Value.ServerName = "logs.example";
     ReCreateStreamWithUpdatedConfig();
     OpenSslCredentialsFake_SetFingerprints(pins, 1);
 
@@ -1362,7 +1411,7 @@ TEST(SolidSyslogOpenSslStream, OpenWarnsOfASha1Pin)
 
 TEST(SolidSyslogOpenSslStream, OpenDoesNotWarnOfAMissingServerNameWhenThePeerIsPinned)
 {
-    /* Default config.ServerName is NULL. */
+    /* The profile leaves ServerName unset. */
     OpenSslCredentialsFake_SetFingerprints(TEST_SHA256_PINS, 1);
 
     CHECK_TRUE(SolidSyslogStream_Open(stream, addr));
@@ -1574,4 +1623,14 @@ TEST(SolidSyslogOpenSslStream, VersionFunctionReceivesVersionContext)
 TEST(SolidSyslogOpenSslStream, VersionIsZeroWhenNoFunctionIsConfigured)
 {
     LONGS_EQUAL(0, SolidSyslogStream_Version(stream));
+}
+
+TEST(SolidSyslogOpenSslStream, OpenPullsTheProfile)
+{
+    config.Profile = FakeProfile;
+    ReCreateStreamWithUpdatedConfig();
+
+    SolidSyslogStream_Open(stream, addr);
+
+    LONGS_EQUAL(1, FakeProfile_CallCount);
 }

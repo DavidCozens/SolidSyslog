@@ -164,6 +164,10 @@ static mbedtls_ssl_config* lastSslConfCaChainConfigArg;
 static mbedtls_x509_crt* lastSslConfCaChainArg;
 static mbedtls_x509_crl* lastSslConfCaChainCrlArg;
 
+/* mbedtls_ssl_conf_ciphersuites */
+static int sslConfCiphersuitesCallCount;
+static const int* lastSslConfCiphersuitesArg;
+
 /* mbedtls_ssl_conf_rng */
 static int sslConfRngCallCount;
 static mbedtls_ssl_config* lastSslConfRngConfigArg;
@@ -249,6 +253,8 @@ void MbedTlsFake_Reset(void)
     lastSslConfAuthmodeConfigArg = NULL;
     lastSslConfAuthmodeArg = 0;
     sslConfCaChainCallCount = 0;
+    sslConfCiphersuitesCallCount = 0;
+    lastSslConfCiphersuitesArg = NULL;
     lastSslConfCaChainConfigArg = NULL;
     lastSslConfCaChainArg = NULL;
     lastSslConfCaChainCrlArg = NULL;
@@ -761,6 +767,23 @@ void mbedtls_ssl_conf_authmode(mbedtls_ssl_config* conf, int authmode)
     sslConfAuthmodeCallCount++;
     lastSslConfAuthmodeConfigArg = conf;
     lastSslConfAuthmodeArg = authmode;
+}
+
+void mbedtls_ssl_conf_ciphersuites(mbedtls_ssl_config* conf, const int* ciphersuites)
+{
+    (void) conf;
+    sslConfCiphersuitesCallCount++;
+    lastSslConfCiphersuitesArg = ciphersuites;
+}
+
+int MbedTlsFake_SslConfCiphersuitesCallCount(void)
+{
+    return sslConfCiphersuitesCallCount;
+}
+
+const int* MbedTlsFake_LastSslConfCiphersuitesArg(void)
+{
+    return lastSslConfCiphersuitesArg;
 }
 
 void mbedtls_ssl_conf_ca_chain(mbedtls_ssl_config* conf, mbedtls_x509_crt* ca_chain, mbedtls_x509_crl* ca_crl)

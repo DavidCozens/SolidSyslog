@@ -53,10 +53,38 @@ struct mbedtls_ctr_drbg_context;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
+    /** What one connection is made with, supplied by the integrator at each Open.
+     *  The stream zeroes this before asking, so a field left alone is one the
+     *  integrator has no policy on and the library's own default stands. Anything
+     *  supplied must stay valid until the connection closes. */
+    struct SolidSyslogMbedTlsProfile
+    {
+        /** SNI + peer-identity check. A non-empty name is verified against the peer
+         *  cert (SAN/CN). NULL asks for neither, and what that means depends on the
+         *  Credentials: a usable pinned fingerprint names the peer instead, so nothing
+         *  is reported; without one the peer is only chain-authenticated and a WARNING
+         *  says so (MITM-class). "" is the no-name-check opt-out (closed network /
+         *  private CA): the peer must still satisfy whatever the credentials
+         *  installed, but the endpoint identity is not checked; no diagnostic. */
+        const char* ServerName;
+        /** Ciphersuite policy: a 0-terminated array of IANA identifiers, the
+         *  MBEDTLS_TLS_* and MBEDTLS_TLS1_3_* macros of ssl_ciphersuites.h. One list
+         *  covers both TLS versions here. NULL leaves every ciphersuite the build
+         *  enables, which on a trimmed mbedtls_config.h is whatever was compiled in
+         *  rather than a curated set. Mbed TLS does not copy the array. */
+        const int* CipherSuites;
+    };
+
+    /** Called at each Open to fill @p profile. Runs on the servicing thread, so a
+     *  value the integrator changes elsewhere is read here rather than stored, and
+     *  moving the stream's Version is what makes the change take effect.
+     *  @p context is ProfileContext, passed through unchanged. */
+    typedef void (*SolidSyslogMbedTlsProfileFunction)(struct SolidSyslogMbedTlsProfile* profile, void* context);
+
     /** Wires SolidSyslogMbedTlsStream to its transport, trust anchors, and identity.
-     *  Copied at Create, so a runtime change is made in what these fields point at -
-     *  rewrite the buffer, re-parse into the handle, hand back new material from the
-     *  Credentials - never by reassigning a field here. */
+     *  Wiring only: every value a connection is made with arrives through the
+     *  Credentials or the Profile, so nothing here goes stale when a deployment
+     *  changes. */
     struct SolidSyslogMbedTlsStreamConfig
     {
         /** Underlying byte stream the TLS records ride on; required - a NULL is
@@ -81,14 +109,12 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
         struct mbedtls_ctr_drbg_context* Rng; /**< Seeded CTR-DRBG for the handshake; caller-built and caller-owned.
                                              Required - a NULL is reported at
                                              SolidSyslogMbedTlsStream_Create. */
-        /** SNI + peer-identity check. A non-empty name is verified against the peer
-         *  cert (SAN/CN). NULL connects chain-only but emits a WARNING - the peer is
-         *  unverified (MITM-class). "" is the no-name-check opt-out (closed network /
-         *  private CA): the peer must still satisfy whatever the credentials
-         *  installed, but the endpoint identity is not checked; no diagnostic. */
-        const char* ServerName;
+        /** Supplies the per-connection profile. NULL leaves every profile field at
+         *  the library default, which for ServerName means an unverified peer. */
+        SolidSyslogMbedTlsProfileFunction Profile;
+        void* ProfileContext; /**< Passed to Profile unchanged; NULL is fine. */
         /** Bumped by the integrator when anything above changes at runtime - the
-         *  Credentials or ServerName. The sender polls it every Send and reconnects
+         *  Credentials, or anything the Profile supplies. The sender polls it every Send and reconnects
          *  on the next pass when it moves, so a rotation applies without calling
          *  SolidSyslogSender_Disconnect. Polled from the servicing thread, so it
          *  must be cheap and pure. NULL means this configuration never changes. */

@@ -43,16 +43,21 @@ after an outage or immediately by moving the stream's configuration version.
 Nothing has to be freed to rotate the shipped source, which names a path that
 OpenSSL reads afresh on each connection, so the version is the whole of it.
 
-## Where it differs from the contract
+## What a connection is made with
 
-Each is tracked. Read them before relying on the corresponding obligation.
+The stream asks for a profile once per connection, and takes the expected peer
+name and the cipher policy from it. Nothing is stored between connections, so a
+change is a matter of returning something different and moving the stream's
+version.
 
-### The cipher policy does not bind a TLS 1.3 connection
+Both of OpenSSL's cipher lists are selectable, because it keeps two: one governs
+TLS 1.2 and below, the other TLS 1.3, and since no protocol ceiling is pinned the
+second is usually the one in force. Leave either unset and OpenSSL's own default
+stands - for TLS 1.3 that is the suite RFC 8446 makes mandatory plus the two it
+recommends. A list that selects nothing fails `Open`, before any handshake, rather
+than falling back, so a policy that matches no suite is reported instead of
+silently ignored.
 
-The cipher list is passed to OpenSSL unchanged and pins nothing of the library's
-own, as the contract asks. It governs TLS 1.2 and below only. OpenSSL has kept
-TLS 1.3 ciphersuites in a separate list since 1.1.1, and this adapter sets a
-protocol floor without a ceiling, so against a modern peer the negotiated
-connection uses OpenSSL's own TLS 1.3 defaults and the configured list has no
-effect on it. Tracked as
-[#733](https://github.com/cososo-ltd/solid-syslog/issues/733).
+Key-exchange groups and signature algorithms are not selectable here. TLS 1.3
+moved both out of the ciphersuite, so a policy naming a curve has nowhere to go
+yet.

@@ -26,6 +26,22 @@
  * the handshake retry loop never sleeps. Provide a NoOp to satisfy the
  * required config field without taking a platform dependency on the
  * integration tests (these run on both POSIX and Windows). */
+/* What the scenario under construction wants the connection made with. Held per
+ * test on the fixture and reached through ProfileContext, so nothing leaks
+ * between tests. */
+struct IntegrationProfileValues
+{
+    const char* ServerName;
+    const char* CipherList;
+};
+
+static void IntegrationProfile(struct SolidSyslogOpenSslProfile* profile, void* context)
+{
+    const auto* values = static_cast<const struct IntegrationProfileValues*>(context);
+    profile->ServerName = values->ServerName;
+    profile->CipherList = values->CipherList;
+}
+
 static void NoOpSleep(int milliseconds)
 {
     (void) milliseconds;
@@ -87,6 +103,7 @@ TEST_GROUP(OpenSslStreamIntegration)
     bool                              installTrustAnchors = true;
     char                              pinText[160]    = {};
     const char*                       pins[1]         = {};
+    struct IntegrationProfileValues   profileValues   = {};
     char                              clientCertPath[256] = {};
     char                              clientKeyPath[256]  = {};
 
@@ -157,7 +174,9 @@ TEST_GROUP(OpenSslStreamIntegration)
         tlsConfig.Transport    = transport;
         tlsConfig.Sleep        = NoOpSleep;
         tlsConfig.Credentials  = credentials;
-        tlsConfig.ServerName   = clientServerName;
+        profileValues.ServerName  = clientServerName;
+        tlsConfig.Profile         = IntegrationProfile;
+        tlsConfig.ProfileContext  = &profileValues;
         tlsStream              = SolidSyslogOpenSslStream_Create(&tlsConfig);
     }
 
@@ -270,7 +289,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertHostnameDoesNotMat
     struct TlsTestCertConfig certConfig = {};
     certConfig.commonName = "someone-else.example";
     certConfig.subjectAltDnsNames = otherSans;
-    buildScenario(certConfig); /* client.ServerName defaults to "localhost" */
+    buildScenario(certConfig); /* the profile's ServerName defaults to "localhost" */
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_OPENSSL_STREAM_ERROR_PEER_NAME_MISMATCHED);
@@ -301,7 +320,7 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenCipherListIsUnsupported)
     struct TlsTestCertConfig certConfig = {};
     certConfig.commonName = "localhost";
     certConfig.subjectAltDnsNames = LOCALHOST_SANS;
-    tlsConfig.CipherList = "NOT-A-REAL-CIPHER";
+    profileValues.CipherList = "NOT-A-REAL-CIPHER";
     buildScenario(certConfig);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));

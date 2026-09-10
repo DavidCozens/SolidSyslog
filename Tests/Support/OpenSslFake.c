@@ -159,6 +159,11 @@ static SSL_CTX* lastSetCipherListCtxArg;
 static const char* lastCipherList;
 static bool setCipherListFails;
 
+/* SSL_CTX_set_ciphersuites */
+static int setCipherSuitesCallCount;
+static const char* lastCipherSuites;
+static bool setCipherSuitesFails;
+
 /* SSL_new */
 static int sslNewCallCount;
 static SSL_CTX* lastSslNewCtxArg;
@@ -302,6 +307,9 @@ void OpenSslFake_Reset(void)
     lastSetCipherListCtxArg = NULL;
     lastCipherList = NULL;
     setCipherListFails = false;
+    setCipherSuitesCallCount = 0;
+    lastCipherSuites = NULL;
+    setCipherSuitesFails = false;
     sslNewCallCount = 0;
     lastSslNewCtxArg = NULL;
     sslNewFails = false;
@@ -872,6 +880,29 @@ SSL_CTX* OpenSslFake_LastSetCipherListCtxArg(void)
 const char* OpenSslFake_LastCipherList(void)
 {
     return lastCipherList;
+}
+
+int SSL_CTX_set_ciphersuites(SSL_CTX* ctx, const char* str)
+{
+    (void) ctx;
+    setCipherSuitesCallCount++;
+    lastCipherSuites = str;
+    return setCipherSuitesFails ? 0 : 1;
+}
+
+void OpenSslFake_SetCipherSuitesFails(bool fails)
+{
+    setCipherSuitesFails = fails;
+}
+
+int OpenSslFake_SetCipherSuitesCallCount(void)
+{
+    return setCipherSuitesCallCount;
+}
+
+const char* OpenSslFake_LastCipherSuites(void)
+{
+    return lastCipherSuites;
 }
 
 SSL* SSL_new(SSL_CTX* ctx)

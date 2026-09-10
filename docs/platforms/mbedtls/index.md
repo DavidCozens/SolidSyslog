@@ -73,14 +73,25 @@ affect the ones you build elsewhere. A device that already uses Mbed TLS for
 firmware update or a vendor cloud SDK keeps that configuration intact, and the
 claim can be checked against the directory.
 
-## Where it differs from the contract
+## What a connection is made with
 
-Each is tracked. Read them before relying on the corresponding obligation.
+The stream asks for a profile once per connection, and takes the expected peer
+name and the ciphersuite policy from it. Nothing is stored between connections,
+so a change is a matter of returning something different and moving the stream's
+version.
 
-### The cipher policy cannot be expressed
+The ciphersuite policy is one list covering both TLS versions, given as a
+0-terminated array of IANA identifiers - the `MBEDTLS_TLS_*` and
+`MBEDTLS_TLS1_3_*` macros. Mbed TLS does not copy it, so the array must stay
+valid for as long as the connection. Leave it unset and every ciphersuite the
+build enables is offered, which on a trimmed `mbedtls_config.h` is whatever was
+compiled in rather than a curated set; naming a policy is how that becomes a
+decision rather than a side effect of the build.
 
-The configuration carries no cipher or ciphersuite field, so the ciphersuites
-your `mbedtls_config.h` enables, filtered by the preset, are what gets
-negotiated. The contract asks for an integrator's policy to be passed through
-where the library allows one to be selected. Tracked as
-[#733](https://github.com/cososo-ltd/solid-syslog/issues/733).
+Setting the list cannot fail here - `mbedtls_ssl_conf_ciphersuites` returns
+nothing - so a policy naming only suites the build does not carry surfaces as a
+refused handshake rather than as a configuration error.
+
+Key-exchange groups and signature algorithms are not selectable here. TLS 1.3
+moved both out of the ciphersuite, so a policy naming a curve has nowhere to go
+yet.
