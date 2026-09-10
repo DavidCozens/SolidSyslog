@@ -39,7 +39,7 @@ TEST(BddTargetTlsConfig, TrustsTheTestCaByDefault)
 TEST(BddTargetTlsConfig, NoneAsksForNoTrustAnchors)
 {
     CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "none"));
-    POINTERS_EQUAL(NULL, BddTargetTlsConfig_GetCaBundlePath());
+    POINTERS_EQUAL(nullptr, BddTargetTlsConfig_GetCaBundlePath());
 }
 
 TEST(BddTargetTlsConfig, ATrustAnchorPathIsUsedAsGiven)
@@ -64,7 +64,7 @@ TEST(BddTargetTlsConfig, ADeclaredNameIsIndependentOfTheHost)
 TEST(BddTargetTlsConfig, NoneAsksForNoNameAtAll)
 {
     CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-name", "none"));
-    POINTERS_EQUAL(NULL, BddTargetTlsConfig_GetServerName());
+    POINTERS_EQUAL(nullptr, BddTargetTlsConfig_GetServerName());
 }
 
 TEST(BddTargetTlsConfig, AnEmptyNameIsTheOptOutRatherThanNoName)
@@ -135,30 +135,30 @@ TEST(BddTargetTlsConfig, AnUnknownNameIsNotOurs)
 
 TEST(BddTargetTlsConfig, TheVersionMovesSoTheNextRecordReconnects)
 {
-    uint32_t before = BddTargetTlsConfig_GetStreamVersion(NULL);
+    uint32_t before = BddTargetTlsConfig_GetStreamVersion(nullptr);
     CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "Bdd/syslog-ng/tls/ca-b.pem"));
-    CHECK_COMPARE(BddTargetTlsConfig_GetStreamVersion(NULL), !=, before);
+    CHECK(BddTargetTlsConfig_GetStreamVersion(nullptr) != before);
 }
 
 TEST(BddTargetTlsConfig, TheEndpointVersionMovesWithIt)
 {
-    uint32_t before = BddTargetTlsConfig_GetEndpointVersion(NULL);
+    uint32_t before = BddTargetTlsConfig_GetEndpointVersion(nullptr);
     CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-port", "6521"));
-    CHECK_COMPARE(BddTargetTlsConfig_GetEndpointVersion(NULL), !=, before);
+    CHECK(BddTargetTlsConfig_GetEndpointVersion(nullptr) != before);
 }
 
 TEST(BddTargetTlsConfig, ARejectedSetLeavesTheVersionAlone)
 {
-    uint32_t before = BddTargetTlsConfig_GetStreamVersion(NULL);
+    uint32_t before = BddTargetTlsConfig_GetStreamVersion(nullptr);
     CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-port", "not-a-port"));
-    UNSIGNED_LONGS_EQUAL(before, BddTargetTlsConfig_GetStreamVersion(NULL));
+    UNSIGNED_LONGS_EQUAL(before, BddTargetTlsConfig_GetStreamVersion(nullptr));
 }
 
 TEST(BddTargetTlsConfig, AnUnknownNameLeavesTheVersionAlone)
 {
-    uint32_t before = BddTargetTlsConfig_GetStreamVersion(NULL);
+    uint32_t before = BddTargetTlsConfig_GetStreamVersion(nullptr);
     CHECK_FALSE(BddTargetTlsConfig_SetByName("store", "file"));
-    UNSIGNED_LONGS_EQUAL(before, BddTargetTlsConfig_GetStreamVersion(NULL));
+    UNSIGNED_LONGS_EQUAL(before, BddTargetTlsConfig_GetStreamVersion(nullptr));
 }
 
 TEST(BddTargetTlsConfig, TheEndpointCarriesTheHostAndPort)
@@ -173,7 +173,7 @@ TEST(BddTargetTlsConfig, TheEndpointCarriesTheHostAndPort)
 
     struct SolidSyslogEndpoint endpoint{};
     endpoint.Host = &hostSink;
-    BddTargetTlsConfig_GetEndpoint(&endpoint, NULL);
+    BddTargetTlsConfig_GetEndpoint(&endpoint, nullptr);
 
     STRCMP_EQUAL("collector-b", SolidSyslogFormatter_AsFormattedBuffer(formatter));
     UNSIGNED_LONGS_EQUAL(6521, endpoint.Port);

@@ -151,6 +151,9 @@ uint32_t BddTargetTlsConfig_GetStreamVersion(void* context)
     return BddTargetTlsConfig_GetEndpointVersion(context);
 }
 
+/* The two parameters are BddTargetInteractiveSetHandler's, so that the prompt's
+   `set NAME VALUE` can reach this at all; the shape is not ours to change. */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 bool BddTargetTlsConfig_SetByName(const char* name, const char* value)
 {
     TlsConfig_EnsureDefaults();
