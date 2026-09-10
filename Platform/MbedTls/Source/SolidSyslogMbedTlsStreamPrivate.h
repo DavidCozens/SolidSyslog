@@ -44,7 +44,7 @@ void SolidSyslogMbedTlsStream_Cleanup(struct SolidSyslogStream* base);
 static inline void MbedTlsStream_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogMbedTlsStreamErrors code
+    enum SolidSyslogTlsStreamErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogMbedTlsStreamErrorSource, category, (int32_t) code);

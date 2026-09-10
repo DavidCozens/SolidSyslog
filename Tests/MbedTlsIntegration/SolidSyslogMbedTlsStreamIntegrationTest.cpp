@@ -304,7 +304,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerCertSignedByUn
     bool opened = SolidSyslogStream_Open(tlsStream, addr);
 
     CHECK_FALSE_TEXT(opened, "client-side handshake must fail when the server cert chains to an untrusted CA");
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED);
 
     MbedTlsTestCert_Destroy(&untrustedCa);
 }
@@ -320,7 +320,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerNameDoesNotMat
     bool opened = SolidSyslogStream_Open(tlsStream, addr);
 
     CHECK_FALSE_TEXT(opened, "client-side handshake must fail when ServerName does not match the cert's SAN");
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
 }
 
 /* No trust anchors and no pinned fingerprint: nothing authorises the peer, so
@@ -339,7 +339,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, OpenFailsWhenNothingAuthorisesThePeer)
     LONGS_EQUAL(SOLIDSYSLOG_SEVERITY_ERROR, LastCapturedError.Severity);
     POINTERS_EQUAL(&SolidSyslogMbedTlsStreamErrorSource, LastCapturedError.Source);
     UNSIGNED_LONGS_EQUAL(SOLIDSYSLOG_CAT_BAD_CONFIG, LastCapturedError.Category);
-    LONGS_EQUAL(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NO_PEER_AUTHORISATION, LastCapturedError.Detail);
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_STREAM_ERROR_NO_PEER_AUTHORISATION, LastCapturedError.Detail);
 }
 
 TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerCertHasExpired)
@@ -353,7 +353,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerCertHasExpired
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
 
     MbedTlsTestCert_Destroy(&expiredCert);
 }
@@ -369,7 +369,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerCertIsNotYetVa
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID);
 
     MbedTlsTestCert_Destroy(&futureCert);
 }
@@ -504,7 +504,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheServerCertMatc
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
 TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheServerCertIsExpiredEvenThoughItsPinMatches)
@@ -519,7 +519,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheServerCertIsEx
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED);
 
     MbedTlsTestCert_Destroy(&expiredCert);
 }
@@ -546,7 +546,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenALeafPresentedWit
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }
 
 TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeSucceedsWhenTrustAnchorsAndAMatchingPinAgree)
@@ -567,5 +567,5 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeRejectedWhenTheChainIsTrusted
     tlsStream = CreateTlsStream(&config);
 
     CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
-    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED);
 }

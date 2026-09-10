@@ -46,7 +46,7 @@ struct SolidSyslogStream* SolidSyslogOpenSslStream_Create(const struct SolidSysl
             OpenSslStream_Report(
                 SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
                 SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-                SOLIDSYSLOG_OPENSSL_STREAM_ERROR_POOL_EXHAUSTED
+                SOLIDSYSLOG_TLS_STREAM_ERROR_POOL_EXHAUSTED
             );
         }
     }
@@ -61,7 +61,7 @@ static inline bool OpenSslStream_IsValidConfig(const struct SolidSyslogOpenSslSt
         OpenSslStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_NULL_CONFIG
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CONFIG
         );
     }
     else if (config->Transport == NULL)
@@ -69,7 +69,7 @@ static inline bool OpenSslStream_IsValidConfig(const struct SolidSyslogOpenSslSt
         OpenSslStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_NULL_TRANSPORT
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_TRANSPORT
         );
     }
     else if (config->Sleep == NULL)
@@ -77,7 +77,7 @@ static inline bool OpenSslStream_IsValidConfig(const struct SolidSyslogOpenSslSt
         OpenSslStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_NULL_SLEEP
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_SLEEP
         );
     }
     else if (config->Credentials == NULL)
@@ -85,7 +85,7 @@ static inline bool OpenSslStream_IsValidConfig(const struct SolidSyslogOpenSslSt
         OpenSslStream_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_NULL_CREDENTIALS
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NULL_CREDENTIALS
         );
     }
     else
@@ -106,7 +106,7 @@ void SolidSyslogOpenSslStream_Destroy(struct SolidSyslogStream* base)
         OpenSslStream_Report(
             SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
             SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-            SOLIDSYSLOG_OPENSSL_STREAM_ERROR_UNKNOWN_DESTROY
+            SOLIDSYSLOG_TLS_STREAM_ERROR_UNKNOWN_DESTROY
         );
     }
 }

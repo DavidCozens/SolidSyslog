@@ -69,9 +69,9 @@ static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbe
 static inline void MbedTlsStream_InstallTransportCallbacks(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_PerformHandshake(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_PeerPassedVerification(struct SolidSyslogMbedTlsStream* self);
-static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_RefusalDetail(struct SolidSyslogMbedTlsStream* self);
+static inline enum SolidSyslogTlsStreamErrors MbedTlsStream_RefusalDetail(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_IsVerifyFailure(uint32_t verdict);
-static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict);
+static inline enum SolidSyslogTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict);
 static inline bool MbedTlsStream_HasUnnamedVerifyFailure(uint32_t verdict);
 static inline bool MbedTlsStream_IsRetryableHandshakeRc(int rc);
 static inline bool MbedTlsStream_IsHandshakeBudgetExhausted(uint32_t totalSleptMs, uint32_t budgetMs);
@@ -255,7 +255,7 @@ static inline bool MbedTlsStream_ApplySslConfigDefaults(struct SolidSyslogMbedTl
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_DEFAULTS_NOT_APPLIED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_DEFAULTS_NOT_APPLIED
         );
     }
     return ok;
@@ -306,7 +306,7 @@ static inline bool MbedTlsStream_InstallCredentials(struct SolidSyslogMbedTlsStr
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_NO_PEER_AUTHORISATION
+            SOLIDSYSLOG_TLS_STREAM_ERROR_NO_PEER_AUTHORISATION
         );
         ok = false;
     }
@@ -341,7 +341,7 @@ static inline bool MbedTlsStream_FingerprintsAreUsable(const struct SolidSyslogT
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_MALFORMED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_MALFORMED
         );
         ok = false;
     }
@@ -350,7 +350,7 @@ static inline bool MbedTlsStream_FingerprintsAreUsable(const struct SolidSyslogT
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_WARNING,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_FINGERPRINT_SHA1
+            SOLIDSYSLOG_TLS_STREAM_ERROR_FINGERPRINT_SHA1
         );
     }
     else
@@ -472,7 +472,7 @@ static inline bool MbedTlsStream_BindContextToConfig(struct SolidSyslogMbedTlsSt
         MbedTlsStream_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_TLS_STREAM_INIT_FAILED,
-            SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_SESSION_INIT_FAILED
+            SOLIDSYSLOG_TLS_STREAM_ERROR_SESSION_INIT_FAILED
         );
     }
     return ok;
@@ -494,7 +494,7 @@ static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbe
             MbedTlsStream_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_SERVER_NAME_NOT_SET
+                SOLIDSYSLOG_TLS_STREAM_ERROR_SERVER_NAME_NOT_SET
             );
         }
     }
@@ -506,7 +506,7 @@ static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbe
             MbedTlsStream_Report(
                 SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_SERVER_NAME_NOT_SET
+                SOLIDSYSLOG_TLS_STREAM_ERROR_SERVER_NAME_NOT_SET
             );
         }
     }
@@ -560,7 +560,7 @@ static inline bool MbedTlsStream_PerformHandshake(struct SolidSyslogMbedTlsStrea
             MbedTlsStream_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
-                SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_HANDSHAKE_TIMEOUT
+                SOLIDSYSLOG_TLS_STREAM_ERROR_HANDSHAKE_TIMEOUT
             );
             done = true;
         }
@@ -594,9 +594,9 @@ static inline bool MbedTlsStream_PeerPassedVerification(struct SolidSyslogMbedTl
 /* The verdict outlives the failed handshake - mbedTLS records every fault it
  * found on the session being negotiated - so the refusal can name the check that
  * produced it rather than the handshake that carried it. */
-static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_RefusalDetail(struct SolidSyslogMbedTlsStream* self)
+static inline enum SolidSyslogTlsStreamErrors MbedTlsStream_RefusalDetail(struct SolidSyslogMbedTlsStream* self)
 {
-    enum SolidSyslogMbedTlsStreamErrors detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_HANDSHAKE_REJECTED;
+    enum SolidSyslogTlsStreamErrors detail = SOLIDSYSLOG_TLS_STREAM_ERROR_HANDSHAKE_REJECTED;
     uint32_t verdict = mbedtls_ssl_get_verify_result(&self->SslContext);
     if (MbedTlsStream_IsVerifyFailure(verdict))
     {
@@ -618,12 +618,12 @@ static inline bool MbedTlsStream_IsVerifyFailure(uint32_t verdict)
  * untrusted chain is reported ahead of anything the certificate says about
  * itself, because a certificate no anchor vouches for is not made acceptable by
  * the dates it carries. */
-static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict)
+static inline enum SolidSyslogTlsStreamErrors MbedTlsStream_DetailForVerifyFailure(uint32_t verdict)
 {
-    enum SolidSyslogMbedTlsStreamErrors detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED;
+    enum SolidSyslogTlsStreamErrors detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_UNTRUSTED;
     if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_OTHER) != 0U)
     {
-        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
     }
     else if (MbedTlsStream_HasUnnamedVerifyFailure(verdict))
     {
@@ -631,16 +631,16 @@ static inline enum SolidSyslogMbedTlsStreamErrors MbedTlsStream_DetailForVerifyF
     }
     else if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_CN_MISMATCH) != 0U)
     {
-        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
     }
     else if ((verdict & (uint32_t) MBEDTLS_X509_BADCERT_EXPIRED) != 0U)
     {
-        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_EXPIRED;
     }
     else
     {
         /* A named flag is set and the others are not, so this is it. */
-        detail = SOLIDSYSLOG_MBEDTLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
+        detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_CERTIFICATE_NOT_YET_VALID;
     }
     return detail;
 }
