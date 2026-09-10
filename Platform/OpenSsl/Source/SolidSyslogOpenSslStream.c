@@ -38,8 +38,11 @@ enum
 
 static uint32_t OpenSslStream_NullHandshakeTimeoutGetter(void* context);
 static uint32_t OpenSslStream_NullVersion(void* context);
+static void OpenSslStream_NullProfile(struct SolidSyslogOpenSslProfile* profile, void* context);
+static inline void OpenSslStream_PullProfile(struct SolidSyslogOpenSslStream* self);
 static inline bool OpenSslStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogOpenSslStreamConfig* config);
 static inline bool OpenSslStream_ConfigProvidesVersion(const struct SolidSyslogOpenSslStreamConfig* config);
+static inline bool OpenSslStream_ConfigProvidesProfile(const struct SolidSyslogOpenSslStreamConfig* config);
 static inline uint32_t OpenSslStream_ResolveHandshakeTimeoutMs(struct SolidSyslogOpenSslStream* self);
 
 struct SolidSyslogAddress;
@@ -50,10 +53,11 @@ static inline bool OpenSslStream_AttachTransportBio(struct SolidSyslogOpenSslStr
 static inline void OpenSslStream_Close(struct SolidSyslogStream* base);
 static uint32_t OpenSslStream_Version(struct SolidSyslogStream* base);
 static inline bool OpenSslStream_ConfigureCipherList(SSL_CTX* ctx, const char* cipherList);
+static inline bool OpenSslStream_ConfigureCipherSuites(SSL_CTX* ctx, const char* cipherSuites);
 static inline bool OpenSslStream_ConfigureExpectedHostname(struct SolidSyslogOpenSslStream* self);
 static inline bool OpenSslStream_ConfigureProtocolFloor(SSL_CTX* ctx);
-static inline bool OpenSslStream_ConfigureSslContext(SSL_CTX* ctx, const struct SolidSyslogOpenSslStreamConfig* config);
-static inline SSL_CTX* OpenSslStream_CreateSslContext(const struct SolidSyslogOpenSslStreamConfig* config);
+static inline bool OpenSslStream_ConfigureSslContext(SSL_CTX* ctx, const struct SolidSyslogOpenSslProfile* profile);
+static inline SSL_CTX* OpenSslStream_CreateSslContext(const struct SolidSyslogOpenSslProfile* profile);
 static inline BIO* OpenSslStream_CreateTransportBio(struct SolidSyslogOpenSslStream* self);
 static inline BIO_METHOD* OpenSslStream_CreateTransportBioMethod(void);
 static inline bool OpenSslStream_InitSslContext(struct SolidSyslogOpenSslStream* self);
@@ -121,6 +125,11 @@ void SolidSyslogOpenSslStream_Initialise(
     {
         self->Config.Version = OpenSslStream_NullVersion;
         self->Config.VersionContext = NULL;
+    }
+    if (OpenSslStream_ConfigProvidesProfile(config) == false)
+    {
+        self->Config.Profile = OpenSslStream_NullProfile;
+        self->Config.ProfileContext = NULL;
     }
     self->Ctx = NULL;
     self->Ssl = NULL;
@@ -208,6 +217,7 @@ static inline void OpenSslStream_ReleaseSslContext(struct SolidSyslogOpenSslStre
 static inline bool OpenSslStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr)
 {
     struct SolidSyslogOpenSslStream* self = OpenSslStream_SelfFromBase(base);
+    OpenSslStream_PullProfile(self);
     bool ok = SolidSyslogStream_Open(self->Config.Transport, addr) && OpenSslStream_InitSslContext(self) &&
               OpenSslStream_InstallCredentials(self) && OpenSslStream_InitSslSession(self) &&
               OpenSslStream_AttachTransportBio(self) && OpenSslStream_ConfigureExpectedHostname(self) &&
@@ -219,9 +229,17 @@ static inline bool OpenSslStream_Open(struct SolidSyslogStream* base, const stru
     return ok;
 }
 
+/* One snapshot per connection: every later step reads the same answer, however
+ * the integrator's own state moves while the handshake is in progress. */
+static inline void OpenSslStream_PullProfile(struct SolidSyslogOpenSslStream* self)
+{
+    self->Profile = (struct SolidSyslogOpenSslProfile) {0};
+    self->Config.Profile(&self->Profile, self->Config.ProfileContext);
+}
+
 static inline bool OpenSslStream_InitSslContext(struct SolidSyslogOpenSslStream* self)
 {
-    self->Ctx = OpenSslStream_CreateSslContext(&self->Config);
+    self->Ctx = OpenSslStream_CreateSslContext(&self->Profile);
     bool ok = self->Ctx != NULL;
     if (!ok)
     {
@@ -313,10 +331,10 @@ static inline void OpenSslStream_ReleaseCredentials(struct SolidSyslogOpenSslStr
     }
 }
 
-static inline SSL_CTX* OpenSslStream_CreateSslContext(const struct SolidSyslogOpenSslStreamConfig* config)
+static inline SSL_CTX* OpenSslStream_CreateSslContext(const struct SolidSyslogOpenSslProfile* profile)
 {
     SSL_CTX* ctx = SSL_CTX_new(TLS_client_method());
-    if ((ctx != NULL) && !OpenSslStream_ConfigureSslContext(ctx, config))
+    if ((ctx != NULL) && !OpenSslStream_ConfigureSslContext(ctx, profile))
     {
         SSL_CTX_free(ctx);
         ctx = NULL;
@@ -324,10 +342,11 @@ static inline SSL_CTX* OpenSslStream_CreateSslContext(const struct SolidSyslogOp
     return ctx;
 }
 
-static inline bool OpenSslStream_ConfigureSslContext(SSL_CTX* ctx, const struct SolidSyslogOpenSslStreamConfig* config)
+static inline bool OpenSslStream_ConfigureSslContext(SSL_CTX* ctx, const struct SolidSyslogOpenSslProfile* profile)
 {
     return OpenSslStream_RequirePeerVerification(ctx) && OpenSslStream_ConfigureProtocolFloor(ctx) &&
-           OpenSslStream_ConfigureCipherList(ctx, config->CipherList);
+           OpenSslStream_ConfigureCipherList(ctx, profile->CipherList) &&
+           OpenSslStream_ConfigureCipherSuites(ctx, profile->CipherSuites);
 }
 
 /* Set outright rather than alongside loading trust anchors, because the peer is
@@ -482,6 +501,19 @@ static inline bool OpenSslStream_ConfigureCipherList(SSL_CTX* ctx, const char* c
     return ok;
 }
 
+/* Separate from the list above because OpenSSL has kept TLS 1.3 ciphersuites in
+ * their own list since 1.1.1, and no ceiling is pinned - so a policy expressed
+ * only through CipherList would not bind the version usually negotiated. */
+static inline bool OpenSslStream_ConfigureCipherSuites(SSL_CTX* ctx, const char* cipherSuites)
+{
+    bool ok = true;
+    if (cipherSuites != NULL)
+    {
+        ok = SSL_CTX_set_ciphersuites(ctx, cipherSuites) == 1;
+    }
+    return ok;
+}
+
 static inline bool OpenSslStream_InitSslSession(struct SolidSyslogOpenSslStream* self)
 {
     self->Ssl = SSL_new(self->Ctx);
@@ -625,7 +657,7 @@ static inline long OpenSslStream_TransportBioCtrl(BIO* bio, int cmd, long larg, 
 static inline bool OpenSslStream_ConfigureExpectedHostname(struct SolidSyslogOpenSslStream* self)
 {
     bool ok = true;
-    const char* serverName = self->Config.ServerName;
+    const char* serverName = self->Profile.ServerName;
     if (serverName == NULL)
     {
         /* No expected identity supplied - the handshake will accept any cert that
@@ -699,6 +731,19 @@ static uint32_t OpenSslStream_NullVersion(void* context)
 static inline bool OpenSslStream_ConfigProvidesVersion(const struct SolidSyslogOpenSslStreamConfig* config)
 {
     return (config != NULL) && (config->Version != NULL);
+}
+
+/* Null Object substituted at Initialise when the integrator supplies no profile -
+ * leaves every field at the library default. */
+static void OpenSslStream_NullProfile(struct SolidSyslogOpenSslProfile* profile, void* context)
+{
+    (void) context;
+    (void) profile;
+}
+
+static inline bool OpenSslStream_ConfigProvidesProfile(const struct SolidSyslogOpenSslStreamConfig* config)
+{
+    return (config != NULL) && (config->Profile != NULL);
 }
 
 /* Bridges the integrator-installed getter (or the Null Object substituted at

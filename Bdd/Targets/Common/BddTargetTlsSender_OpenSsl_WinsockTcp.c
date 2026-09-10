@@ -19,6 +19,18 @@ static struct SolidSyslogStream* tlsStream;
 static struct SolidSyslogAddress* address;
 static struct SolidSyslogSender* sender;
 
+static void BddTargetTlsSender_TlsProfile(struct SolidSyslogOpenSslProfile* profile, void* context)
+{
+    (void) context;
+    profile->ServerName = BddTargetTlsConfig_GetServerName();
+}
+
+static void BddTargetTlsSender_MtlsProfile(struct SolidSyslogOpenSslProfile* profile, void* context)
+{
+    (void) context;
+    profile->ServerName = BddTargetMtlsConfig_GetServerName();
+}
+
 struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* resolver, bool mtls)
 {
     underlyingStream = SolidSyslogWinsockTcpStream_Create(NULL);
@@ -27,6 +39,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig = (struct SolidSyslogOpenSslStreamConfig) {0};
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = SolidSyslogWindows_Sleep;
+    tlsStreamConfig.Profile = mtls ? BddTargetTlsSender_MtlsProfile : BddTargetTlsSender_TlsProfile;
     static struct SolidSyslogOpenSslPemFileCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogOpenSslPemFileCredentialsConfig) {0};
     if (mtls)
@@ -34,12 +47,10 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
         credentialsConfig.CaBundlePath = BddTargetMtlsConfig_GetCaBundlePath();
         credentialsConfig.ClientCertChainPath = BddTargetMtlsConfig_GetClientCertChainPath();
         credentialsConfig.ClientKeyPath = BddTargetMtlsConfig_GetClientKeyPath();
-        tlsStreamConfig.ServerName = BddTargetMtlsConfig_GetServerName();
     }
     else
     {
         credentialsConfig.CaBundlePath = BddTargetTlsConfig_GetCaBundlePath();
-        tlsStreamConfig.ServerName = BddTargetTlsConfig_GetServerName();
     }
     credentials = SolidSyslogOpenSslPemFileCredentials_Create(&credentialsConfig);
     tlsStreamConfig.Credentials = credentials;

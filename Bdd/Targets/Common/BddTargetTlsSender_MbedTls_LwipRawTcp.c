@@ -362,6 +362,14 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
          * detect the short-circuit. */
         return SolidSyslogNullSender_Get();
     }
+    /* Plain-TLS and mTLS share one SNI on this oracle (CN/SAN = "syslog-ng"), so
+ * BddTargetTlsConfig_GetServerName and BddTargetMtlsConfig_GetServerName return
+ * the same string. Use the TLS one to make the equivalence explicit. */
+    static void BddTargetTlsSender_Profile(struct SolidSyslogMbedTlsProfile * profile, void* context)
+    {
+        (void) context;
+        profile->ServerName = BddTargetTlsConfig_GetServerName();
+    }
 
     /* Inner byte transport: lwIP Raw API TCP stream. RtosSleep drives the
      * bounded synchronous-connect spin; the connect timeout comes from the
@@ -380,10 +388,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = RtosSleep;
     tlsStreamConfig.Rng = &drbg;
-    /* Plain-TLS and mTLS share one SNI on this oracle (CN/SAN = "syslog-ng"),
-     * so BddTargetTlsConfig_GetServerName and BddTargetMtlsConfig_GetServerName
-     * return the same string. Use the TLS one to make the equivalence explicit. */
-    tlsStreamConfig.ServerName = BddTargetTlsConfig_GetServerName();
+    tlsStreamConfig.Profile = BddTargetTlsSender_Profile;
     static struct SolidSyslogMbedTlsHandleCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogMbedTlsHandleCredentialsConfig) {0};
     credentialsConfig.Rng = &drbg;

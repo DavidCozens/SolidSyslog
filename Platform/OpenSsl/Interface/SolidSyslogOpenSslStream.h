@@ -39,10 +39,35 @@ struct SolidSyslogOpenSslCredentials;
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
+    /** What one connection is made with, supplied by the integrator at each Open.
+     *  The stream zeroes this before asking, so a field left alone is one the
+     *  integrator has no policy on and the library's own default stands. Anything
+     *  supplied must stay valid until the connection closes. */
+    struct SolidSyslogOpenSslProfile
+    {
+        /** SNI plus the expected peer identity. A non-empty name is verified against
+         *  the cert (SAN/CN). NULL connects chain-only but emits a WARNING - the peer
+         *  is unverified (MITM-class). "" is the no-name-check opt-out (closed network
+         *  / private CA): still verified against whatever the credentials installed,
+         *  endpoint identity unchecked; no diagnostic. */
+        const char* ServerName;
+        const char* CipherList; /**< TLS 1.2 and below; NULL uses the OpenSSL default. */
+        /** TLS 1.3 ciphersuites, which OpenSSL keeps in a list of their own - a
+         *  CipherList alone does not bind a TLS 1.3 connection. NULL uses the OpenSSL
+         *  default, which is RFC 8446's mandatory suite plus both it recommends. */
+        const char* CipherSuites;
+    };
+
+    /** Called at each Open to fill @p profile. Runs on the servicing thread, so a
+     *  value the integrator changes elsewhere is read here rather than stored, and
+     *  moving the stream's Version is what makes the change take effect.
+     *  @p context is ProfileContext, passed through unchanged. */
+    typedef void (*SolidSyslogOpenSslProfileFunction)(struct SolidSyslogOpenSslProfile* profile, void* context);
+
     /** Wires SolidSyslogOpenSslStream to its transport, trust anchors, and identity.
-     *  Copied at Create, so a runtime change is made in what these fields point at -
-     *  rewrite the buffer, re-parse into the handle, hand back new material from the
-     *  Credentials - never by reassigning a field here. */
+     *  Wiring only: every value a connection is made with arrives through the
+     *  Credentials or the Profile, so nothing here goes stale when a deployment
+     *  changes. */
     struct SolidSyslogOpenSslStreamConfig
     {
         /** Underlying byte stream carrying the ciphertext; required - a NULL is
@@ -66,15 +91,12 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
                                                                        *  SOLIDSYSLOG_TLS_HANDSHAKE_TIMEOUT_MS
                                                                        *  tunable. */
         void* HandshakeTimeoutContext; /**< Passed back to GetHandshakeTimeoutMs unchanged; NULL is fine. */
-        /** SNI plus the expected peer identity. A non-empty name is verified against
-         *  the cert (SAN/CN). NULL connects chain-only but emits a WARNING - the peer
-         *  is unverified (MITM-class). "" is the no-name-check opt-out (closed network
-         *  / private CA): still verified against whatever the credentials installed,
-         *  endpoint identity unchecked; no diagnostic. */
-        const char* ServerName;
-        const char* CipherList; /**< TLS 1.2 cipher list; NULL uses the OpenSSL default. */
-        /** Bumped by the integrator when anything above changes at runtime - the
-         *  Credentials, ServerName or CipherList. The sender polls it every Send and
+        /** Supplies the per-connection profile. NULL leaves every profile field at
+         *  the library default, which for ServerName means an unverified peer. */
+        SolidSyslogOpenSslProfileFunction Profile;
+        void* ProfileContext; /**< Passed to Profile unchanged; NULL is fine. */
+        /** Bumped by the integrator when anything the stream uses changes at runtime -
+         *  the Credentials, or anything the Profile supplies. The sender polls it every Send and
          *  reconnects on the next pass when it moves, so a rotation applies without
          *  calling SolidSyslogSender_Disconnect. Polled from the servicing thread,
          *  so it must be cheap and pure. NULL means this configuration never

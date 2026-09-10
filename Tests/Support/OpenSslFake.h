@@ -30,6 +30,7 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     void OpenSslFake_SetBioMethNewFails(bool fails);
     void OpenSslFake_SetBioNewFails(bool fails);
     void OpenSslFake_SetCipherListFails(bool fails);
+    void OpenSslFake_SetCipherSuitesFails(bool fails);
 
     /* SSL return-value injection - drive non-blocking I/O paths */
     enum
@@ -89,6 +90,8 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     int OpenSslFake_SetCipherListCallCount(void);
     struct ssl_ctx_st* OpenSslFake_LastSetCipherListCtxArg(void);
     const char* OpenSslFake_LastCipherList(void);
+    int OpenSslFake_SetCipherSuitesCallCount(void);
+    const char* OpenSslFake_LastCipherSuites(void);
 
     int OpenSslFake_SslNewCallCount(void);
     struct ssl_ctx_st* OpenSslFake_LastSslNewCtxArg(void);

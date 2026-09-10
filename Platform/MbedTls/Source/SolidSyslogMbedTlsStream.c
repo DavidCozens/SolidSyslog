@@ -38,8 +38,12 @@ struct SolidSyslogAddress;
 
 static uint32_t MbedTlsStream_NullHandshakeTimeoutGetter(void* context);
 static uint32_t MbedTlsStream_NullVersion(void* context);
+static void MbedTlsStream_NullProfile(struct SolidSyslogMbedTlsProfile* profile, void* context);
+static inline void MbedTlsStream_PullProfile(struct SolidSyslogMbedTlsStream* self);
+static inline void MbedTlsStream_ApplyCipherPolicy(struct SolidSyslogMbedTlsStream* self);
 static inline bool MbedTlsStream_ConfigProvidesHandshakeGetter(const struct SolidSyslogMbedTlsStreamConfig* config);
 static inline bool MbedTlsStream_ConfigProvidesVersion(const struct SolidSyslogMbedTlsStreamConfig* config);
+static inline bool MbedTlsStream_ConfigProvidesProfile(const struct SolidSyslogMbedTlsStreamConfig* config);
 static inline uint32_t MbedTlsStream_ResolveHandshakeTimeoutMs(struct SolidSyslogMbedTlsStream* self);
 static inline struct SolidSyslogMbedTlsStream* MbedTlsStream_SelfFromBase(struct SolidSyslogStream* base);
 static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr);
@@ -104,6 +108,11 @@ void SolidSyslogMbedTlsStream_Initialise(
         self->Config.Version = MbedTlsStream_NullVersion;
         self->Config.VersionContext = NULL;
     }
+    if (MbedTlsStream_ConfigProvidesProfile(config) == false)
+    {
+        self->Config.Profile = MbedTlsStream_NullProfile;
+        self->Config.ProfileContext = NULL;
+    }
     /* Eager init so mbedtls_*_free in Close is always safe - whether Open
      * was ever reached, whether it succeeded, or whether Close is being
      * called twice in a row. mbedTLS guarantees a freed struct is left in
@@ -139,6 +148,19 @@ static uint32_t MbedTlsStream_NullVersion(void* context)
 static inline bool MbedTlsStream_ConfigProvidesVersion(const struct SolidSyslogMbedTlsStreamConfig* config)
 {
     return (config != NULL) && (config->Version != NULL);
+}
+
+/* Null Object substituted at Initialise when the integrator supplies no profile -
+ * leaves every field at the library default. */
+static void MbedTlsStream_NullProfile(struct SolidSyslogMbedTlsProfile* profile, void* context)
+{
+    (void) context;
+    (void) profile;
+}
+
+static inline bool MbedTlsStream_ConfigProvidesProfile(const struct SolidSyslogMbedTlsStreamConfig* config)
+{
+    return (config != NULL) && (config->Profile != NULL);
 }
 
 /* Bridges the integrator-installed getter (or the Null Object substituted at
@@ -191,10 +213,12 @@ static uint32_t MbedTlsStream_Version(struct SolidSyslogStream* base)
 static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr)
 {
     struct SolidSyslogMbedTlsStream* self = MbedTlsStream_SelfFromBase(base);
+    MbedTlsStream_PullProfile(self);
     bool ok = SolidSyslogStream_Open(self->Config.Transport, addr) && MbedTlsStream_ApplySslConfigDefaults(self);
     if (ok)
     {
         MbedTlsStream_ApplyTlsPolicy(self);
+        MbedTlsStream_ApplyCipherPolicy(self);
         ok = MbedTlsStream_InstallCredentials(self) && MbedTlsStream_BindContextToConfig(self) &&
              MbedTlsStream_ConfigureExpectedHostname(self);
     }
@@ -208,6 +232,14 @@ static inline bool MbedTlsStream_Open(struct SolidSyslogStream* base, const stru
         MbedTlsStream_Close(base);
     }
     return ok;
+}
+
+/* One snapshot per connection: every later step reads the same answer, however
+ * the integrator's own state moves while the handshake is in progress. */
+static inline void MbedTlsStream_PullProfile(struct SolidSyslogMbedTlsStream* self)
+{
+    self->Profile = (struct SolidSyslogMbedTlsProfile) {0};
+    self->Config.Profile(&self->Profile, self->Config.ProfileContext);
 }
 
 static inline bool MbedTlsStream_ApplySslConfigDefaults(struct SolidSyslogMbedTlsStream* self)
@@ -243,6 +275,18 @@ static inline void MbedTlsStream_ApplyTlsPolicy(struct SolidSyslogMbedTlsStream*
      * wherever it is implemented. */
     mbedtls_ssl_conf_min_tls_version(&self->SslConfig, MBEDTLS_SSL_VERSION_TLS1_2);
     mbedtls_ssl_conf_rng(&self->SslConfig, mbedtls_ctr_drbg_random, self->Config.Rng);
+}
+
+/* The integrator's cipher policy, applied after the library's own so a build
+ * that trimmed its ciphersuites is not silently widened. One list covers both
+ * TLS versions here; Mbed TLS reads the array for the life of the ssl_config,
+ * which Close frees, so it need only outlive the connection. */
+static inline void MbedTlsStream_ApplyCipherPolicy(struct SolidSyslogMbedTlsStream* self)
+{
+    if (self->Profile.CipherSuites != NULL)
+    {
+        mbedtls_ssl_conf_ciphersuites(&self->SslConfig, self->Profile.CipherSuites);
+    }
 }
 
 /* Asked once per connection, after the policy is on the ssl_config and before
@@ -437,7 +481,7 @@ static inline bool MbedTlsStream_BindContextToConfig(struct SolidSyslogMbedTlsSt
 static inline bool MbedTlsStream_ConfigureExpectedHostname(struct SolidSyslogMbedTlsStream* self)
 {
     bool ok = true;
-    const char* serverName = self->Config.ServerName;
+    const char* serverName = self->Profile.ServerName;
     if (serverName == NULL)
     {
         /* No expected identity supplied - the handshake will accept any cert that

@@ -267,13 +267,18 @@ For a deployment with no policy of its own, RFC 9662 §4 asks that
 the same shape - ECDHE with AES-GCM - for TLS 1.2. Both prefer it over the 2009
 mandatory suite, which offers no forward secrecy.
 
-Since no ceiling is set, the version negotiated may be later than the floor, and
-a policy that binds only up to the floor does not bind the connection in use.
-Passing the integrator's choice through means passing it through for whichever
-version is negotiated.
+Since no ceiling is set, the version negotiated may be later than the floor, so
+passing the integrator's choice through means passing it through for whichever
+version is negotiated - a policy that binds only up to the floor does not bind
+the connection in use. Where a library splits the choice across more than one
+setting, every one of them is the integrator's to make.
 
 Where the library does not allow it, its own defaults apply. What each platform
 can and cannot select is on its page.
+
+The choice is asked for once per connection rather than stored, alongside the
+expected peer identity, so a deployment whose policy changes while the device is
+running states the new one and moves the stream's version.
 
 ### Do not resume a session under weaker terms
 

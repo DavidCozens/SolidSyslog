@@ -30,7 +30,9 @@ struct SolidSyslogMbedTlsStream
     bool CredentialsInstalled;
     /* What the last Install reported. Read after Install returns, by the verify
      * callback and by the hostname step; valid only while CredentialsInstalled. */
-    struct SolidSyslogTlsCredentialsInstalled Installed;
+    struct SolidSyslogTlsCredentialsInstalled
+        Installed; /* Pulled at the start of each Open and read for the rest of it. */
+    struct SolidSyslogMbedTlsProfile Profile;
 };
 
 void SolidSyslogMbedTlsStream_Initialise(

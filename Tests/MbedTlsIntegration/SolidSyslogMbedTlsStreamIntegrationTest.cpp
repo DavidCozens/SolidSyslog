@@ -61,8 +61,25 @@ static void CaptureError(void* context, const struct SolidSyslogErrorEvent* even
     }
 
 // clang-format off
+/* What the scenario under construction wants the connection made with. Held per
+ * test on the fixture and reached through ProfileContext, so nothing leaks
+ * between tests. */
+struct IntegrationProfileValues
+{
+    const char* ServerName;
+    const int*  CipherSuites;
+};
+
+static void IntegrationProfile(struct SolidSyslogMbedTlsProfile* profile, void* context)
+{
+    const auto* values   = static_cast<const struct IntegrationProfileValues*>(context);
+    profile->ServerName   = values->ServerName;
+    profile->CipherSuites = values->CipherSuites;
+}
+
 TEST_GROUP(SolidSyslogMbedTlsStreamIntegration)
 {
+    struct IntegrationProfileValues profileValues = {};
     mbedtls_entropy_context  entropy            = {};
     mbedtls_ctr_drbg_context rng                = {};
     int                      fds[2]             = {-1, -1};
@@ -206,7 +223,9 @@ TEST_GROUP(SolidSyslogMbedTlsStreamIntegration)
         cfg.Transport = transport;
         cfg.Sleep = NoOpSleep;
         cfg.Rng = &rng;
-        cfg.ServerName = TEST_SERVER_HOSTNAME;
+        profileValues.ServerName = TEST_SERVER_HOSTNAME;
+        cfg.Profile = IntegrationProfile;
+        cfg.ProfileContext = &profileValues;
         return cfg;
     }
 
@@ -295,7 +314,7 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerNameDoesNotMat
 {
     struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
     struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
-    config.ServerName = "wrong-host.example.com"; /* server cert has SAN syslog.example.com */
+    profileValues.ServerName = "wrong-host.example.com"; /* server cert has SAN syslog.example.com */
     tlsStream = CreateTlsStream(&config);
 
     bool opened = SolidSyslogStream_Open(tlsStream, addr);
