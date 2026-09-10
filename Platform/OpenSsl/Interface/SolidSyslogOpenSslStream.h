@@ -46,10 +46,12 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     struct SolidSyslogOpenSslProfile
     {
         /** SNI plus the expected peer identity. A non-empty name is verified against
-         *  the cert (SAN/CN). NULL connects chain-only but emits a WARNING - the peer
-         *  is unverified (MITM-class). "" is the no-name-check opt-out (closed network
-         *  / private CA): still verified against whatever the credentials installed,
-         *  endpoint identity unchecked; no diagnostic. */
+         *  the cert (SAN/CN). NULL asks for neither, and what that means depends on
+         *  the Credentials: a usable pinned fingerprint names the peer instead, so
+         *  nothing is reported; without one the peer is only chain-authenticated and a
+         *  WARNING says so (MITM-class). "" is the no-name-check opt-out (closed
+         *  network / private CA): still verified against whatever the credentials
+         *  installed, endpoint identity unchecked; no diagnostic. */
         const char* ServerName;
         const char* CipherList; /**< TLS 1.2 and below; NULL uses the OpenSSL default. */
         /** TLS 1.3 ciphersuites, which OpenSSL keeps in a list of their own - a

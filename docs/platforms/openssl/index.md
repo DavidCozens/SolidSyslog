@@ -54,8 +54,9 @@ Both of OpenSSL's cipher lists are selectable, because it keeps two: one governs
 TLS 1.2 and below, the other TLS 1.3, and since no protocol ceiling is pinned the
 second is usually the one in force. Leave either unset and OpenSSL's own default
 stands - for TLS 1.3 that is the suite RFC 8446 makes mandatory plus the two it
-recommends. A list that selects nothing fails the connection rather than falling
-back, so a policy that matches no suite is reported instead of silently ignored.
+recommends. A list that selects nothing fails `Open`, before any handshake, rather
+than falling back, so a policy that matches no suite is reported instead of
+silently ignored.
 
 Key-exchange groups and signature algorithms are not selectable here. TLS 1.3
 moved both out of the ciphersuite, so a policy naming a curve has nowhere to go
