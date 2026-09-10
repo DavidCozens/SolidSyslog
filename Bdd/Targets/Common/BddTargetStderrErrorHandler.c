@@ -1,11 +1,19 @@
 #include "BddTargetStderrErrorHandler.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "BddTargetErrorText.h"
 #include "SolidSyslogError.h"
 #include "SolidSyslogPrival.h"
+
+static bool fatalOnError = true;
+
+void BddTargetStderrErrorHandler_SetFatal(bool fatal)
+{
+    fatalOnError = fatal;
+}
 
 static void StderrErrorHandlerEx(void* context, const struct SolidSyslogErrorEvent* event)
 {
@@ -17,7 +25,7 @@ static void StderrErrorHandlerEx(void* context, const struct SolidSyslogErrorEve
         sourceName = source->Name;
     }
     const char* message = BddTargetErrorText_Category(event->Category);
-    if (event->Severity <= SOLIDSYSLOG_SEVERITY_ERROR)
+    if (fatalOnError && (event->Severity <= SOLIDSYSLOG_SEVERITY_ERROR))
     {
         (void) fprintf(
             stderr,

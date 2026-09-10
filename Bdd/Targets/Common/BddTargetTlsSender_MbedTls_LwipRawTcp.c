@@ -388,6 +388,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = RtosSleep;
     tlsStreamConfig.Rng = &drbg;
+    tlsStreamConfig.Version = DispatchEndpointVersion;
     tlsStreamConfig.Profile = BddTargetTlsSender_Profile;
     static struct SolidSyslogMbedTlsHandleCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogMbedTlsHandleCredentialsConfig) {0};

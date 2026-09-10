@@ -415,7 +415,13 @@ int BddTargetWindows_Run(int argc, char* argv[])
         .Msg = options.Msg,
     };
 
-    BddTargetInteractive_Run(solidSyslog, &message, stdin, BddTargetSwitchConfig_SetByName, NULL);
+    BddTargetInteractive_Run(
+        solidSyslog,
+        &message,
+        stdin,
+        BddTargetSwitchConfig_SetByName,
+        BddTargetTlsConfig_SetByName
+    );
 
     shutdownFlag = true;
     WaitForSingleObject(serviceThread, INFINITE);

@@ -14,6 +14,7 @@
 #include "BddTargetIps.h"
 #include "BddTargetLanguage.h"
 #include "BddTargetSwitchConfig.h"
+#include "BddTargetTlsConfig.h"
 #include "BddTargetTlsSender.h"
 #include "CmsdkUart.h"
 
@@ -447,7 +448,9 @@ static bool OnSet(const char* name, const char* value)
         }
         return true;
     }
-    return false;
+    /* Anything left is either a TLS knob or nothing we own; the TLS module says
+       which, so its table lives in one place rather than being mirrored here. */
+    return BddTargetTlsConfig_SetByName(name, value);
 }
 
 static bool TryUpdateString(char* storage, size_t storageSize, const char* value)

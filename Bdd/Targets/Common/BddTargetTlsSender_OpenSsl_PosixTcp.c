@@ -40,6 +40,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig = (struct SolidSyslogOpenSslStreamConfig) {0};
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = SolidSyslogPosix_Sleep;
+    tlsStreamConfig.Version = BddTargetTlsConfig_GetStreamVersion;
     tlsStreamConfig.Profile = mtls ? BddTargetTlsSender_MtlsProfile : BddTargetTlsSender_TlsProfile;
     static struct SolidSyslogOpenSslPemFileCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogOpenSslPemFileCredentialsConfig) {0};
