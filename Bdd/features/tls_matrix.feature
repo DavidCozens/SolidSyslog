@@ -17,3 +17,11 @@ Feature: TLS equivalence matrix
     When the BDD target sends a syslog message with transport tls
     Then the syslog oracle receives 1 message over tls
     And the target reports no TLS fault
+
+  Scenario: A peer presented with its issuer satisfies both the anchor and the pin
+    Given the syslog oracle is running
+    And the collector presents "chained"
+    And the fingerprint of "chained" is pinned
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports no TLS fault

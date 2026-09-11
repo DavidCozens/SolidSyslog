@@ -29,6 +29,7 @@ _TLS_MATERIAL = pathlib.Path(__file__).resolve().parents[2] / "syslog-ng" / "tls
 # names the identity and no feature file names a port or a file.
 _COLLECTORS = {
     "self-signed": (6518, "server-selfsigned.pem"),
+    "chained": (6519, "server-chained.pem"),
 }
 
 # Detail codes are per-class, so a bare `detail=` is ambiguous: a resolver fault
