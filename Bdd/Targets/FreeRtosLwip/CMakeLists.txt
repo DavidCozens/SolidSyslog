@@ -197,6 +197,14 @@ bake_pem_into_header(
     ${BAKED_PEMS_DIR}/BddBakedCaPem.h
     bdd_baked_ca_pem
 )
+# The authority a scenario rotates to, and the one that signs the certificates a
+# peer-refusal cell expects to be refused. Baked like the rest: this target has
+# no filesystem to read one from.
+bake_pem_into_header(
+    ${CMAKE_SOURCE_DIR}/Bdd/syslog-ng/tls/ca-b.pem
+    ${BAKED_PEMS_DIR}/BddBakedCaBPem.h
+    bdd_baked_ca_b_pem
+)
 bake_pem_into_header(
     ${CMAKE_SOURCE_DIR}/Bdd/syslog-ng/tls/client.pem
     ${BAKED_PEMS_DIR}/BddBakedClientCertPem.h
@@ -210,6 +218,7 @@ bake_pem_into_header(
 
 set(BAKED_PEM_HEADERS
     ${BAKED_PEMS_DIR}/BddBakedCaPem.h
+    ${BAKED_PEMS_DIR}/BddBakedCaBPem.h
     ${BAKED_PEMS_DIR}/BddBakedClientCertPem.h
     ${BAKED_PEMS_DIR}/BddBakedClientKeyPem.h
 )
@@ -242,6 +251,7 @@ add_executable(SolidSyslogBddTargetLwip
     ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetLanguage.c
     ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetMtlsConfig.c
     ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetSwitchConfig.c
+    ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetMbedTlsCredentials.c
     ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetTlsConfig.c
     ${CMAKE_SOURCE_DIR}/Bdd/Targets/Common/BddTargetTlsSender_MbedTls_LwipRawTcp.c
     ${BAKED_PEM_HEADERS}
