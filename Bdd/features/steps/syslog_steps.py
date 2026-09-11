@@ -442,6 +442,22 @@ def wait_for_messages(context, expected_messages):
     context.message_count = len(context.all_lines)
 
 
+def apply_tls_settings(context, process):
+    """Deliver the TLS knobs a scenario configured, over the prompt protocol.
+
+    Unlike apply_extra_args this is the same on every target: Linux and Windows
+    read the lines from stdin, FreeRTOS from the UART, and all four route them
+    to BddTargetTlsConfig_SetByName. A value the target will not take echoes
+    `set: invalid`, which fails the scenario here rather than surfacing later as
+    a connection nobody configured.
+    """
+    for name, value in getattr(context, "tls_settings", []):
+        reply = send_command(process, f"set {name} {value}")
+        assert "set: invalid" not in reply, (
+            f"BDD target rejected `set {name} {value}`"
+        )
+
+
 def run_example(context, extra_args=None, expected_messages=1, command="send"):
     """Run the BDD target via the prompt protocol.
 
@@ -471,6 +487,7 @@ def run_example(context, extra_args=None, expected_messages=1, command="send"):
     try:
         wait_for_prompt(process)
         apply_extra_args(context, process, extra_args)
+        apply_tls_settings(context, process)
         send_command(process, f"{command} {expected_messages}")
         wait_for_messages(context, expected_messages)
 

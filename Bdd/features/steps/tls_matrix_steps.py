@@ -13,11 +13,23 @@ protocol. Both captured streams are searched.
 """
 
 import hashlib
+import pathlib
 import re
+import ssl
 
 from behave import given, then
 
 from tls_error_codes import tls_error_code
+
+_TLS_MATERIAL = pathlib.Path(__file__).resolve().parents[2] / "syslog-ng" / "tls"
+
+# One row per collector identity: the port its listener answers on, and the
+# certificate it presents. Both oracles use the same port for the same
+# identity (Bdd/syslog-ng/syslog-ng.conf, Bdd/otel/config.yaml), so a scenario
+# names the identity and no feature file names a port or a file.
+_COLLECTORS = {
+    "self-signed": (6518, "server-selfsigned.pem"),
+}
 
 # Detail codes are per-class, so a bare `detail=` is ambiguous: a resolver fault
 # reporting 16 would be indistinguishable from PEER_CERTIFICATE_UNTRUSTED. Both
@@ -65,24 +77,48 @@ def step_target_reports_no_tls_fault(context):
     )
 
 
-@given('the fingerprint of "{certificate}" is pinned')
-def step_pin_certificate(context, certificate):
-    """Pin a committed certificate by computing its fingerprint here.
+@given('the collector presents "{identity}"')
+def step_collector_presents(context, identity):
+    """Point the target at the listener holding that identity."""
+    port, _ = _listener(identity)
+    tls_set(context, "tls-port", str(port))
+
+
+@given('the BDD target trusts no certificate authority')
+def step_target_trusts_nothing(context):
+    tls_set(context, "tls-ca", "none")
+
+
+@given('the fingerprint of "{identity}" is pinned')
+def step_pin_certificate(context, identity):
+    """Pin a collector by computing its fingerprint here.
 
     Computed rather than written down, so regenerating the test material does
     not silently invalidate a feature file. The form is the one RFC 5425 4.2.2
     defines: the hash label, a colon, then the hash of the DER encoding as
     colon-separated hex pairs.
     """
-    context.tls_pins = getattr(context, "tls_pins", [])
-    context.tls_pins.append(fingerprint_of(certificate))
+    _, certificate = _listener(identity)
+    tls_set(context, "tls-pin", fingerprint_of(_TLS_MATERIAL / certificate))
+
+
+def tls_set(context, name, value):
+    """Queue one `set NAME VALUE`, delivered once the target is at its prompt."""
+    context.tls_settings = getattr(context, "tls_settings", []) + [(name, value)]
+
+
+def _listener(identity):
+    try:
+        return _COLLECTORS[identity]
+    except KeyError:
+        raise KeyError(
+            f"No collector identity {identity!r}. Known: {sorted(_COLLECTORS)}."
+        ) from None
 
 
 def fingerprint_of(certificate, algorithm="sha-256"):
     """The RFC 5425 4.2.2 fingerprint of a committed PEM certificate."""
-    import ssl
-
-    der = ssl.PEM_cert_to_DER_cert(open(certificate, encoding="ascii").read())
+    der = ssl.PEM_cert_to_DER_cert(pathlib.Path(certificate).read_text(encoding="ascii"))
     digest = hashlib.new(algorithm.replace("-", ""), der).hexdigest().upper()
     pairs = ":".join(digest[i:i + 2] for i in range(0, len(digest), 2))
     return f"{algorithm}:{pairs}"
