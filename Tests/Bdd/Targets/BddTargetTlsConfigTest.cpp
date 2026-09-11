@@ -10,7 +10,8 @@ enum
     TEST_HOST_BUFFER_SIZE = 64
 };
 
-#define CHECK_CA_PATH(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetCaBundlePath())
+#define CHECK_TRUST_ANCHOR(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetTrustAnchorName())
+#define CHECK_CLIENT_CREDENTIAL(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetClientCredentialName())
 #define CHECK_SERVER_NAME(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetServerName())
 #define CHECK_PIN_COUNT(expected) UNSIGNED_LONGS_EQUAL(expected, BddTargetTlsConfig_GetPeerFingerprintCount())
 #define CHECK_PIN_AT(index, expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetPeerFingerprints()[index])
@@ -33,19 +34,48 @@ TEST_GROUP(BddTargetTlsConfig)
 
 TEST(BddTargetTlsConfig, TrustsTheTestCaByDefault)
 {
-    CHECK_CA_PATH("Bdd/syslog-ng/tls/ca.pem");
+    CHECK_TRUST_ANCHOR("ca");
 }
 
 TEST(BddTargetTlsConfig, NoneAsksForNoTrustAnchors)
 {
     CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "none"));
-    POINTERS_EQUAL(nullptr, BddTargetTlsConfig_GetCaBundlePath());
+    CHECK_TRUST_ANCHOR("none");
 }
 
-TEST(BddTargetTlsConfig, ATrustAnchorPathIsUsedAsGiven)
+TEST(BddTargetTlsConfig, TheOtherAuthorityCanBeSelected)
 {
-    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "Bdd/syslog-ng/tls/ca-b.pem"));
-    CHECK_CA_PATH("Bdd/syslog-ng/tls/ca-b.pem");
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "ca-b"));
+    CHECK_TRUST_ANCHOR("ca-b");
+}
+
+TEST(BddTargetTlsConfig, AnUnknownTrustAnchorNameIsRejectedAndChangesNothing)
+{
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-ca", "Bdd/syslog-ng/tls/ca.pem"));
+    CHECK_TRUST_ANCHOR("ca");
+}
+
+TEST(BddTargetTlsConfig, NoClientCredentialIsPresentedByDefault)
+{
+    CHECK_CLIENT_CREDENTIAL("none");
+}
+
+TEST(BddTargetTlsConfig, AClientCredentialCanBeSelected)
+{
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-client", "client"));
+    CHECK_CLIENT_CREDENTIAL("client");
+}
+
+TEST(BddTargetTlsConfig, HalfAClientCredentialIsSayable)
+{
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-client", "cert-only"));
+    CHECK_CLIENT_CREDENTIAL("cert-only");
+}
+
+TEST(BddTargetTlsConfig, AnUnknownClientCredentialNameIsRejected)
+{
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-client", "certificate"));
+    CHECK_CLIENT_CREDENTIAL("none");
 }
 
 TEST(BddTargetTlsConfig, ServerNameFallsBackToTheHost)
@@ -136,7 +166,7 @@ TEST(BddTargetTlsConfig, AnUnknownNameIsNotOurs)
 TEST(BddTargetTlsConfig, TheVersionMovesSoTheNextRecordReconnects)
 {
     uint32_t before = BddTargetTlsConfig_GetStreamVersion(nullptr);
-    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "Bdd/syslog-ng/tls/ca-b.pem"));
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-ca", "ca-b"));
     CHECK(BddTargetTlsConfig_GetStreamVersion(nullptr) != before);
 }
 
@@ -188,7 +218,7 @@ TEST(BddTargetTlsConfig, AHostWithNoValueIsRejectedRatherThanEmptied)
 TEST(BddTargetTlsConfig, ATrustAnchorWithNoValueIsRejectedRatherThanEmptied)
 {
     CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-ca", ""));
-    CHECK_CA_PATH("Bdd/syslog-ng/tls/ca.pem");
+    CHECK_TRUST_ANCHOR("ca");
 }
 
 TEST(BddTargetTlsConfig, ARejectedEmptyValueLeavesTheVersionAlone)

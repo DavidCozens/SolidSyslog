@@ -28,7 +28,7 @@
 #include "BddTargetTlsConfig.h"
 #include "SolidSyslogPlusTcpAddress.h"
 #include "SolidSyslogPlusTcpTcpStream.h"
-#include "SolidSyslogMbedTlsHandleCredentials.h"
+#include "BddTargetMbedTlsCredentials.h"
 #include "SolidSyslogMbedTlsStream.h"
 #include "SolidSyslogNullSender.h"
 #include "SolidSyslogStream.h"
@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "BddBakedCaBPem.h"
 #include "BddBakedCaPem.h"
 #include "BddBakedClientCertPem.h"
 #include "BddBakedClientKeyPem.h"
@@ -57,7 +58,6 @@
 struct SolidSyslogResolver;
 
 static struct SolidSyslogStream* underlyingStream;
-static struct SolidSyslogMbedTlsCredentials* credentials;
 static struct SolidSyslogStream* tlsStream;
 static struct SolidSyslogAddress* address;
 static struct SolidSyslogSender* sender;
@@ -76,10 +76,12 @@ static bool mbedTlsInitialised;
  * cheaper than the shell pipeline that would be needed to bake the NUL at
  * CMake time. */
 static unsigned char caPemBuf[sizeof(bdd_baked_ca_pem) + 1U];
+static unsigned char caBPemBuf[sizeof(bdd_baked_ca_b_pem) + 1U];
 static unsigned char clientCertPemBuf[sizeof(bdd_baked_client_cert_pem) + 1U];
 static unsigned char clientKeyPemBuf[sizeof(bdd_baked_client_key_pem) + 1U];
 
 static mbedtls_x509_crt caChain;
+static mbedtls_x509_crt caChainB;
 static mbedtls_x509_crt clientCertChain;
 static mbedtls_pk_context clientKey;
 
@@ -262,6 +264,20 @@ static void EnsureMbedTlsInitialised(void)
     }
     vTaskDelay(1U);
 
+    memcpy(caBPemBuf, bdd_baked_ca_b_pem, sizeof(bdd_baked_ca_b_pem));
+    caBPemBuf[sizeof(bdd_baked_ca_b_pem)] = '\0';
+    mbedtls_x509_crt_init(&caChainB);
+    int caBParseRc = mbedtls_x509_crt_parse(&caChainB, caBPemBuf, sizeof(caBPemBuf));
+    if (caBParseRc != 0)
+    {
+        (void) printf(
+            "[mbedtls] second CA parse FAILED rc=-0x%04x; cells selecting it will be unusable\r\n",
+            (unsigned) -caBParseRc
+        );
+        return;
+    }
+    vTaskDelay(1U);
+
     (void) printf("[mbedtls] parsing client cert chain\r\n");
 
     memcpy(clientCertPemBuf, bdd_baked_client_cert_pem, sizeof(bdd_baked_client_cert_pem));
@@ -380,14 +396,8 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig.Rng = &drbg;
     tlsStreamConfig.Version = DispatchEndpointVersion;
     tlsStreamConfig.Profile = BddTargetTlsSender_Profile;
-    static struct SolidSyslogMbedTlsHandleCredentialsConfig credentialsConfig;
-    credentialsConfig = (struct SolidSyslogMbedTlsHandleCredentialsConfig) {0};
-    credentialsConfig.Rng = &drbg;
-    credentialsConfig.CaChain = &caChain;
-    credentialsConfig.ClientCertChain = &clientCertChain;
-    credentialsConfig.ClientKey = &clientKey;
-    credentials = SolidSyslogMbedTlsHandleCredentials_Create(&credentialsConfig);
-    tlsStreamConfig.Credentials = credentials;
+    BddTargetMbedTlsCredentials_Wire(&caChain, &caChainB, &clientCertChain, &clientKey);
+    tlsStreamConfig.Credentials = BddTargetMbedTlsCredentials_Get();
     tlsStream = SolidSyslogMbedTlsStream_Create(&tlsStreamConfig);
 
     address = SolidSyslogPlusTcpAddress_Create();
@@ -417,7 +427,6 @@ void BddTargetTlsSender_Destroy(void)
     SolidSyslogStreamSender_Destroy(sender);
     SolidSyslogPlusTcpAddress_Destroy(address);
     SolidSyslogMbedTlsStream_Destroy(tlsStream);
-    SolidSyslogMbedTlsHandleCredentials_Destroy(credentials);
     SolidSyslogPlusTcpTcpStream_Destroy(underlyingStream);
 
     /* Entropy / DRBG / parsed certs survive across Destroy -> Create cycles to
