@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <openssl/ssl.h>
@@ -24,6 +25,8 @@ static bool BddTargetOpenSslCredentials_Install(
 );
 static void BddTargetOpenSslCredentials_Release(struct SolidSyslogOpenSslCredentials* self);
 static const char* BddTargetOpenSslCredentials_TrustAnchorPath(void);
+static void BddTargetOpenSslCredentials_InstallClientCredential(SSL_CTX* ctx);
+static void BddTargetOpenSslCredentials_Complain(const char* what);
 
 static struct SolidSyslogOpenSslCredentials credentials = {
     BddTargetOpenSslCredentials_Install,
@@ -56,22 +59,7 @@ static bool BddTargetOpenSslCredentials_Install(
         ok = installed->TrustAnchorsInstalled;
     }
 
-    const char* client = BddTargetTlsConfig_GetClientCredentialName();
-    if (strcmp(client, "client") == 0)
-    {
-        (void) SSL_CTX_use_certificate_chain_file(ctx, CLIENT_CERT_CHAIN);
-        (void) SSL_CTX_use_PrivateKey_file(ctx, CLIENT_KEY, SSL_FILETYPE_PEM);
-    }
-    else if (strcmp(client, "cert-only") == 0)
-    {
-        /* Half a credential on purpose: the contract reports it and keeps
-           delivering, which is the cell this exists for. */
-        (void) SSL_CTX_use_certificate_chain_file(ctx, CLIENT_CERT_CHAIN);
-    }
-    else
-    {
-        /* No client credential, so the connection is server-authenticated. */
-    }
+    BddTargetOpenSslCredentials_InstallClientCredential(ctx);
     return ok;
 }
 
@@ -100,4 +88,51 @@ static const char* BddTargetOpenSslCredentials_TrustAnchorPath(void)
            unless a pin names the peer instead. */
     }
     return path;
+}
+
+/* A fault in our own credential never stops delivery - that is the contract the
+   matrix is here to demonstrate - so nothing below fails the connection.
+   
+   What it does do is complain when material the scenario asked for will not
+   load. That is broken harness material rather than a condition under test, and
+   silence would let the mutual-TLS scenario connect with no client certificate
+   at all and pass against a listener that does not require one. A green test
+   proving the opposite of its name is the worst failure this suite can have.
+   
+   The complaint is deliberately not a SolidSyslog error report: it carries no
+   role or detail, so it cannot be mistaken for something the library said. */
+static void BddTargetOpenSslCredentials_InstallClientCredential(SSL_CTX* ctx)
+{
+    const char* wanted = BddTargetTlsConfig_GetClientCredentialName();
+    bool wantsCertificate = (strcmp(wanted, "client") == 0) || (strcmp(wanted, "cert-only") == 0);
+    bool wantsKey = strcmp(wanted, "client") == 0;
+
+    if (wantsCertificate && (SSL_CTX_use_certificate_chain_file(ctx, CLIENT_CERT_CHAIN) != 1))
+    {
+        BddTargetOpenSslCredentials_Complain("client certificate");
+        wantsKey = false;
+    }
+    if (wantsKey)
+    {
+        if (SSL_CTX_use_PrivateKey_file(ctx, CLIENT_KEY, SSL_FILETYPE_PEM) != 1)
+        {
+            BddTargetOpenSslCredentials_Complain("client key");
+        }
+        else if (SSL_CTX_check_private_key(ctx) != 1)
+        {
+            BddTargetOpenSslCredentials_Complain("client key paired with its certificate");
+        }
+        else
+        {
+            /* Both halves installed and paired, so mutual TLS is in force. */
+        }
+    }
+    /* "cert-only" stops here on purpose: half a credential is the case the
+       contract reports and keeps delivering through. */
+}
+
+static void BddTargetOpenSslCredentials_Complain(const char* what)
+{
+    (void) fprintf(stderr, "BDD-TARGET: harness material broken - no %s\n", what);
+    (void) fflush(stderr);
 }
