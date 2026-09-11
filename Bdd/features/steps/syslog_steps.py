@@ -482,6 +482,9 @@ def run_example(context, extra_args=None, expected_messages=1, command="send"):
     )
 
     process = spawn_example_process(context, extra_args=extra_args, binary=binary)
+    # On the context as well as in hand, so a step that runs after this one can
+    # read what the target reported, and after_step can dump it on a failure.
+    context.interactive_process = process
     context.example_pid = process.pid
 
     try:
