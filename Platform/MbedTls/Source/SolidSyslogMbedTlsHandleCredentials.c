@@ -98,7 +98,7 @@ static inline void MbedTlsHandleCredentials_ConfigureClientIdentity(
             MbedTlsHandleCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
             );
         }
         /* Only MBEDTLS_ERR_SSL_ALLOC_FAILED, which returns before the key_cert
@@ -108,7 +108,7 @@ static inline void MbedTlsHandleCredentials_ConfigureClientIdentity(
             MbedTlsHandleCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
             );
         }
         else
@@ -121,7 +121,7 @@ static inline void MbedTlsHandleCredentials_ConfigureClientIdentity(
         MbedTlsHandleCredentials_Report(
             SOLIDSYSLOG_SEVERITY_WARNING,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
         );
     }
     else

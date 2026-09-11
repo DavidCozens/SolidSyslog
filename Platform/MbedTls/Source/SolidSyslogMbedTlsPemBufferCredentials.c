@@ -122,7 +122,7 @@ static inline void MbedTlsPemBufferCredentials_ConfigureClientIdentity(
             MbedTlsPemBufferCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_PEM_NOT_TERMINATED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_PEM_NOT_TERMINATED
             );
         }
         else if (MbedTlsPemBufferCredentials_ParseClientCredential(self) == false)
@@ -130,7 +130,7 @@ static inline void MbedTlsPemBufferCredentials_ConfigureClientIdentity(
             MbedTlsPemBufferCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_PARSED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_PARSED
             );
         }
         else if (MbedTlsPemBufferCredentials_ClientKeyMatchesCertificate(self) == false)
@@ -138,7 +138,7 @@ static inline void MbedTlsPemBufferCredentials_ConfigureClientIdentity(
             MbedTlsPemBufferCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
             );
         }
         /* Only MBEDTLS_ERR_SSL_ALLOC_FAILED, which returns before the key_cert
@@ -148,7 +148,7 @@ static inline void MbedTlsPemBufferCredentials_ConfigureClientIdentity(
             MbedTlsPemBufferCredentials_Report(
                 SOLIDSYSLOG_SEVERITY_WARNING,
                 SOLIDSYSLOG_CAT_BAD_CONFIG,
-                SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
             );
         }
         else
@@ -161,7 +161,7 @@ static inline void MbedTlsPemBufferCredentials_ConfigureClientIdentity(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_SEVERITY_WARNING,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
         );
     }
     else
@@ -246,7 +246,7 @@ static inline bool MbedTlsPemBufferCredentials_ParseTrustAnchors(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_PEM_NOT_TERMINATED
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_PEM_NOT_TERMINATED
         );
     }
     else if (mbedtls_x509_crt_parse(&self->CaChain, self->Config.CaPem.Bytes, self->Config.CaPem.Length) != 0)
@@ -254,7 +254,7 @@ static inline bool MbedTlsPemBufferCredentials_ParseTrustAnchors(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_TRUST_ANCHORS_NOT_PARSED
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_TRUST_ANCHORS_NOT_PARSED
         );
     }
     else

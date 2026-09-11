@@ -38,7 +38,7 @@ struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Creat
         OpenSslPemFileCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_NULL_CONFIG
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_CONFIG
         );
     }
     else if (!SolidSyslogTlsFingerprint_ListIsPresent(config->PeerFingerprints, config->PeerFingerprintCount))
@@ -46,7 +46,7 @@ struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Creat
         OpenSslPemFileCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
         );
     }
     else
@@ -62,7 +62,7 @@ struct SolidSyslogOpenSslCredentials* SolidSyslogOpenSslPemFileCredentials_Creat
             OpenSslPemFileCredentials_Report(
                 SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
                 SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-                SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_POOL_EXHAUSTED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_POOL_EXHAUSTED
             );
         }
     }
@@ -84,7 +84,7 @@ void SolidSyslogOpenSslPemFileCredentials_Destroy(struct SolidSyslogOpenSslCrede
         OpenSslPemFileCredentials_Report(
             SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
             SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-            SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_UNKNOWN_DESTROY
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_UNKNOWN_DESTROY
         );
     }
 }

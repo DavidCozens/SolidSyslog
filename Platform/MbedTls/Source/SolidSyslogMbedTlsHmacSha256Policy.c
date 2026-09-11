@@ -130,7 +130,7 @@ static bool MbedTlsHmacSha256Policy_ComputeTag(
             MbedTlsHmacSha256Policy_Report(
                 SOLIDSYSLOG_SEVERITY_ERROR,
                 failureCategory,
-                SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_HMAC_FAILED
+                SOLIDSYSLOG_HMAC_SHA256_POLICY_ERROR_HMAC_FAILED
             );
         }
     }
@@ -163,7 +163,7 @@ static bool MbedTlsHmacSha256Policy_FetchKey(
             MbedTlsHmacSha256Policy_Report(
                 SOLIDSYSLOG_SEVERITY_ERROR,
                 SOLIDSYSLOG_CAT_SECURITY_POLICY_KEY_UNAVAILABLE,
-                SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_KEY_TOO_SHORT
+                SOLIDSYSLOG_HMAC_SHA256_POLICY_ERROR_KEY_TOO_SHORT
             );
         }
     }
@@ -172,7 +172,7 @@ static bool MbedTlsHmacSha256Policy_FetchKey(
         MbedTlsHmacSha256Policy_Report(
             SOLIDSYSLOG_SEVERITY_ERROR,
             SOLIDSYSLOG_CAT_SECURITY_POLICY_KEY_UNAVAILABLE,
-            SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_KEY_UNAVAILABLE
+            SOLIDSYSLOG_HMAC_SHA256_POLICY_ERROR_KEY_UNAVAILABLE
         );
     }
     return fetched;

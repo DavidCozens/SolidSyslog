@@ -47,7 +47,7 @@ struct SolidSyslogSecurityPolicy* SolidSyslogOpenSslAesGcmPolicy_Create(
             OpenSslAesGcmPolicy_Report(
                 SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
                 SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-                SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_POOL_EXHAUSTED
+                SOLIDSYSLOG_AES_GCM_POLICY_ERROR_POOL_EXHAUSTED
             );
         }
     }
@@ -56,7 +56,7 @@ struct SolidSyslogSecurityPolicy* SolidSyslogOpenSslAesGcmPolicy_Create(
         OpenSslAesGcmPolicy_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_BAD_CONFIG
+            SOLIDSYSLOG_AES_GCM_POLICY_ERROR_BAD_CONFIG
         );
     }
     return handle;
@@ -77,7 +77,7 @@ void SolidSyslogOpenSslAesGcmPolicy_Destroy(struct SolidSyslogSecurityPolicy* ba
         OpenSslAesGcmPolicy_Report(
             SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
             SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-            SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
+            SOLIDSYSLOG_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
         );
     }
 }

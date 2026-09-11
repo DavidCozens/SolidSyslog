@@ -28,7 +28,7 @@ void SolidSyslogMbedTlsAesGcmPolicy_Cleanup(struct SolidSyslogSecurityPolicy* ba
 static inline void MbedTlsAesGcmPolicy_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogMbedTlsAesGcmPolicyErrors code
+    enum SolidSyslogAesGcmPolicyErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogMbedTlsAesGcmPolicyErrorSource, category, (int32_t) code);

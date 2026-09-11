@@ -28,7 +28,7 @@ void SolidSyslogOpenSslHmacSha256Policy_Cleanup(struct SolidSyslogSecurityPolicy
 static inline void OpenSslHmacSha256Policy_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogOpenSslHmacSha256PolicyErrors code
+    enum SolidSyslogHmacSha256PolicyErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogOpenSslHmacSha256PolicyErrorSource, category, (int32_t) code);

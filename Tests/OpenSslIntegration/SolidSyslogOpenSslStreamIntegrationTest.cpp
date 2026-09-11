@@ -392,10 +392,7 @@ TEST(OpenSslStreamIntegration, MutualTlsConnectsServerAuthenticatedWhenClientKey
     /* NOT_INSTALLED rather than MISMATCHED: both test certs are RSA, so OpenSSL
      * refuses the pair inside SSL_CTX_use_PrivateKey_file and never reaches the
      * explicit pairing check. */
-    LONGS_EQUAL(
-        SOLIDSYSLOG_OPENSSL_PEM_FILE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED,
-        LastCapturedError.Detail
-    );
+    LONGS_EQUAL(SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED, LastCapturedError.Detail);
 }
 
 TEST(OpenSslStreamIntegration, MutualTlsHandshakeRejectedWhenClientCertSignedByUntrustedCa)

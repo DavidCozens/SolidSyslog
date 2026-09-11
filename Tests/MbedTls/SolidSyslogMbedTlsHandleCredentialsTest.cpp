@@ -114,7 +114,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithNullConfigReportsBadConfig)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_NULL_CONFIG
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_CONFIG
     );
 }
 
@@ -138,7 +138,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithoutAnRngReportsBadConfig)
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_NULL_RNG
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_RNG
     );
 }
 
@@ -164,7 +164,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateBeyondThePoolReportsExhaustion)
         SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_POOL_EXHAUSTED
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_POOL_EXHAUSTED
     );
 }
 
@@ -179,7 +179,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, DestroyingAHandleThePoolDoesNotOwnIsRe
         SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_UNKNOWN_DESTROY
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_UNKNOWN_DESTROY
     );
 }
 
@@ -278,7 +278,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, CreateWithAPinCountButNoPinListReports
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
     );
 }
 
@@ -351,7 +351,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsAHalfSuppliedClientCrede
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
     );
 }
 
@@ -367,7 +367,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsAHalfSuppliedClientKey)
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_INCOMPLETE
     );
 }
 
@@ -384,7 +384,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsAClientKeyThatDoesNotMat
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_MISMATCHED
     );
 }
 
@@ -414,7 +414,7 @@ TEST(SolidSyslogMbedTlsHandleCredentials, InstallReportsAClientCredentialThatWil
         SOLIDSYSLOG_SEVERITY_WARNING,
         &SolidSyslogMbedTlsHandleCredentialsErrorSource,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HANDLE_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
+        SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_CLIENT_CREDENTIAL_NOT_INSTALLED
     );
 }
 

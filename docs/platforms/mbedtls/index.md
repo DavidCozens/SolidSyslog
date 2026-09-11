@@ -75,14 +75,26 @@ claim can be checked against the directory.
 
 ## What it reports
 
-Faults are reported with the portable TLS-stream detail codes, so a handler
-written against them keeps working if the TLS backend underneath changes. What
-stays specific to this pack is `event->Source`, which names it as the reporter.
+Every class in this pack reports portable detail codes, so a handler written
+against them keeps working if the crypto backend underneath changes. What stays
+specific to this pack is `event->Source`, which names the class that reported.
 
-One of those codes describes a fault this pack cannot have, so it never raises
-it: `CONTEXT_INIT_FAILED`. There is no separate context to build here - the
-configuration is brought up from a library preset, and a failure at that point is
-`DEFAULTS_NOT_APPLIED`.
+Each role's codes are the whole vocabulary that role can express, so some
+describe faults this pack cannot have and it never raises them.
+
+From the TLS-stream codes it does not raise `CONTEXT_INIT_FAILED`. There is no
+separate context to build here - the configuration is brought up from a library
+preset, and a failure at that point is `DEFAULTS_NOT_APPLIED`.
+
+From the credentials codes it does not raise `TRUST_ANCHORS_NOT_LOADED`. Neither
+shipped source loads anchors from anywhere: one is handed material the integrator
+has already parsed, and the other parses a buffer and reports
+`TRUST_ANCHORS_NOT_PARSED` if that fails. Which of the two you wire decides what
+else you can see - the parsing source alone can raise `PEM_NOT_TERMINATED`,
+`TRUST_ANCHORS_NOT_PARSED` and `CLIENT_CREDENTIAL_NOT_PARSED`, because it is the
+only one doing the parsing.
+
+The at-rest policies raise every code their roles define.
 
 ## What a connection is made with
 
