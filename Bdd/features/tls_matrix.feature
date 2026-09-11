@@ -25,3 +25,20 @@ Feature: TLS equivalence matrix
     When the BDD target sends a syslog message with transport tls
     Then the syslog oracle receives 1 message over tls
     And the target reports no TLS fault
+
+  Scenario: A pin set holding a certificate the collector no longer presents keeps delivering
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    And the fingerprint of "collector-b" is pinned
+    And the fingerprint of "anchor-signed" is pinned
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports no TLS fault
+
+  Scenario: Opting out of the peer name check accepts a name that would not have matched
+    Given the syslog oracle is running
+    And the collector presents "wrong-name"
+    And the BDD target opts out of the peer name check
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports no TLS fault

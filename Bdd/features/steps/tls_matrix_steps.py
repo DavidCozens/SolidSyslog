@@ -28,8 +28,11 @@ _TLS_MATERIAL = pathlib.Path(__file__).resolve().parents[2] / "syslog-ng" / "tls
 # identity (Bdd/syslog-ng/syslog-ng.conf, Bdd/otel/config.yaml), so a scenario
 # names the identity and no feature file names a port or a file.
 _COLLECTORS = {
+    "anchor-signed": (6514, "server.pem"),
     "self-signed": (6518, "server-selfsigned.pem"),
+    "wrong-name": (6517, "server-wrongname.pem"),
     "chained": (6519, "server-chained.pem"),
+    "collector-b": (6521, "server-b.pem"),
 }
 
 # Detail codes are per-class, so a bare `detail=` is ambiguous: a resolver fault
@@ -88,6 +91,14 @@ def step_collector_presents(context, identity):
 @given('the BDD target trusts no certificate authority')
 def step_target_trusts_nothing(context):
     tls_set(context, "tls-ca", "none")
+
+
+@given('the BDD target opts out of the peer name check')
+def step_target_opts_out_of_name_check(context):
+    """An empty expected name is the deliberate opt-out, as against no name at
+    all: the integrator has said there is nothing to check rather than left it
+    unsaid, so the library connects chain-only and reports nothing."""
+    tls_set(context, "tls-name", "")
 
 
 @given('the fingerprint of "{identity}" is pinned')
