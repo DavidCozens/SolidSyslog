@@ -27,7 +27,7 @@ void SolidSyslogMbedTlsHandleCredentials_Initialise(
 static inline void MbedTlsHandleCredentials_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogMbedTlsHandleCredentialsErrors code
+    enum SolidSyslogTlsCredentialsErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogMbedTlsHandleCredentialsErrorSource, category, (int32_t) code);

@@ -45,14 +45,24 @@ OpenSSL reads afresh on each connection, so the version is the whole of it.
 
 ## What it reports
 
-Faults are reported with the portable TLS-stream detail codes, so a handler
-written against them keeps working if the TLS backend underneath changes. What
-stays specific to this pack is `event->Source`, which names it as the reporter.
+Every class in this pack reports portable detail codes, so a handler written
+against them keeps working if the crypto backend underneath changes. What stays
+specific to this pack is `event->Source`, which names the class that reported.
 
-Two of those codes describe faults this pack cannot have, so it never raises
-them: `DEFAULTS_NOT_APPLIED`, because nothing here applies a library preset, and
-`NULL_RNG`, because OpenSSL carries its own entropy source and the configuration
-asks for none.
+Each role's codes are the whole vocabulary that role can express, so some
+describe faults this pack cannot have and it never raises them.
+
+From the TLS-stream codes it does not raise `DEFAULTS_NOT_APPLIED`, because
+nothing here applies a library preset, or `NULL_RNG`, because OpenSSL carries its
+own entropy source and the configuration asks for none.
+
+From the credentials codes it does not raise `NULL_RNG` for the same reason, nor
+`PEM_NOT_TERMINATED`, `TRUST_ANCHORS_NOT_PARSED` or `CLIENT_CREDENTIAL_NOT_PARSED`:
+the shipped source names a path and hands it to OpenSSL, which reads and parses
+the file itself, so a failure there arrives as `TRUST_ANCHORS_NOT_LOADED` or
+`CLIENT_CREDENTIAL_NOT_INSTALLED` rather than as a parse of its own.
+
+The at-rest policies raise every code their roles define.
 
 ## What a connection is made with
 

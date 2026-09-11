@@ -28,7 +28,7 @@ void SolidSyslogOpenSslAesGcmPolicy_Cleanup(struct SolidSyslogSecurityPolicy* ba
 static inline void OpenSslAesGcmPolicy_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogOpenSslAesGcmPolicyErrors code
+    enum SolidSyslogAesGcmPolicyErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogOpenSslAesGcmPolicyErrorSource, category, (int32_t) code);

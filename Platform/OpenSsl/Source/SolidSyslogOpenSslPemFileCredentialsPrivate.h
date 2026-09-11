@@ -27,7 +27,7 @@ void SolidSyslogOpenSslPemFileCredentials_Initialise(
 static inline void OpenSslPemFileCredentials_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogOpenSslPemFileCredentialsErrors code
+    enum SolidSyslogTlsCredentialsErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogOpenSslPemFileCredentialsErrorSource, category, (int32_t) code);

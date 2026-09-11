@@ -37,7 +37,7 @@ void SolidSyslogMbedTlsPemBufferCredentials_Cleanup(struct SolidSyslogMbedTlsCre
 static inline void MbedTlsPemBufferCredentials_Report(
     enum SolidSyslogSeverity severity,
     uint16_t category,
-    enum SolidSyslogMbedTlsPemBufferCredentialsErrors code
+    enum SolidSyslogTlsCredentialsErrors code
 )
 {
     SolidSyslog_Error(severity, &SolidSyslogMbedTlsPemBufferCredentialsErrorSource, category, (int32_t) code);

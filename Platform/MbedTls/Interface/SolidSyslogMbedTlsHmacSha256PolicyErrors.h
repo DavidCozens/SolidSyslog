@@ -3,36 +3,21 @@
  */
 
 /** @file
- *  Error codes and Source identity for the MbedTlsHmacSha256Policy. */
+ *  Source identity for the MbedTlsHmacSha256Policy adapter; the detail codes it reports are
+ *  the portable ones in SolidSyslogHmacSha256PolicyErrors.h. */
 #ifndef SOLIDSYSLOGMBEDTLSHMACSHA256POLICYERRORS_H
 #define SOLIDSYSLOGMBEDTLSHMACSHA256POLICYERRORS_H
 
 #include "SolidSyslogExternC.h"
+#include "SolidSyslogHmacSha256PolicyErrors.h"
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
     struct SolidSyslogErrorSource;
 
-    /** Detail codes for events whose Source is SolidSyslogMbedTlsHmacSha256PolicyErrorSource.
-     *  A handler reads these off event->Detail after matching event->Source; the
-     *  members name their own fault. KEY_TOO_SHORT is raised when GetKey returns a
-     *  key below the SHA-256 output length (32 bytes) - the policy fails closed
-     *  rather than seal with a cryptographically worthless MAC. A tag mismatch on
-     *  open is silent (the expected tamper verdict), so no HMAC_FAILED for that. */
-    enum SolidSyslogMbedTlsHmacSha256PolicyErrors
-    {
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_POOL_EXHAUSTED,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_BAD_CONFIG,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_KEY_UNAVAILABLE,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_KEY_TOO_SHORT,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_HMAC_FAILED,
-        SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_MAX /**< One past the last code; never emitted. Bounds the range for iteration. */
-    };
-
-    /** Identity for events raised by an MbedTlsHmacSha256Policy. A handler matches
-     *  by address (event->Source == &SolidSyslogMbedTlsHmacSha256PolicyErrorSource), then
-     *  reads event->Detail as an enum SolidSyslogMbedTlsHmacSha256PolicyErrors. */
+    /** Identity for events raised by a MbedTlsHmacSha256Policy. A handler matches by
+     *  address (event->Source == &SolidSyslogMbedTlsHmacSha256PolicyErrorSource), then reads
+     *  event->Detail as an enum SolidSyslogHmacSha256PolicyErrors. */
     extern const struct SolidSyslogErrorSource SolidSyslogMbedTlsHmacSha256PolicyErrorSource;
 
 SOLIDSYSLOG_EXTERN_C_END

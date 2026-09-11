@@ -49,7 +49,7 @@ struct SolidSyslogMbedTlsCredentials* SolidSyslogMbedTlsPemBufferCredentials_Cre
             MbedTlsPemBufferCredentials_Report(
                 SOLIDSYSLOG_POOL_EXHAUSTED_SEVERITY,
                 SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-                SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_POOL_EXHAUSTED
+                SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_POOL_EXHAUSTED
             );
         }
     }
@@ -69,7 +69,7 @@ static inline bool MbedTlsPemBufferCredentials_IsValidConfig(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_CONFIG
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_CONFIG
         );
     }
     else if (config->Rng == NULL)
@@ -77,7 +77,7 @@ static inline bool MbedTlsPemBufferCredentials_IsValidConfig(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_RNG
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_RNG
         );
     }
     else if (!SolidSyslogTlsFingerprint_ListIsPresent(config->PeerFingerprints, config->PeerFingerprintCount))
@@ -85,7 +85,7 @@ static inline bool MbedTlsPemBufferCredentials_IsValidConfig(
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_BAD_CONFIG_FATAL_SEVERITY,
             SOLIDSYSLOG_CAT_BAD_CONFIG,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_NULL_PEER_FINGERPRINT
         );
     }
     else
@@ -110,7 +110,7 @@ void SolidSyslogMbedTlsPemBufferCredentials_Destroy(struct SolidSyslogMbedTlsCre
         MbedTlsPemBufferCredentials_Report(
             SOLIDSYSLOG_UNKNOWN_DESTROY_SEVERITY,
             SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-            SOLIDSYSLOG_MBEDTLS_PEM_BUFFER_CREDENTIALS_ERROR_UNKNOWN_DESTROY
+            SOLIDSYSLOG_TLS_CREDENTIALS_ERROR_UNKNOWN_DESTROY
         );
     }
 }

@@ -162,9 +162,9 @@ A public macro or enum constant that names a class writes the class in
 registry token stays whole, spelled exactly as its CMake option spells it.
 
 ```c
-SOLIDSYSLOG_CIRCULAR_BUFFER_ERROR_POOL_EXHAUSTED   /* Core class, every word split */
-SOLIDSYSLOG_OPENSSL_STREAM_ERROR_HANDSHAKE_TIMEOUT /* OpenSsl token whole, Stream split */
-SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_MAX
+SOLIDSYSLOG_CIRCULAR_BUFFER_ERROR_POOL_EXHAUSTED     /* Core class, every word split */
+SOLIDSYSLOG_FATFS_FILE_ERROR_POOL_EXHAUSTED          /* FatFs token whole, File split */
+SOLIDSYSLOG_WINSOCK_TCP_STREAM_ERROR_UNKNOWN_DESTROY /* Winsock whole, TcpStream split */
 ```
 
 Splitting the token would misspell the upstream it names — `OPEN_SSL` and
@@ -177,14 +177,20 @@ The library instance is the degenerate case: its class name is the project name,
 so prefix and class collapse and the constants read `SOLIDSYSLOG_ERROR_*` rather
 than `SOLIDSYSLOG_SOLIDSYSLOG_ERROR_*`.
 
-**On length.** The longest identifier this produces is 60 characters
-(`SOLIDSYSLOG_MBEDTLS_HMAC_SHA256_POLICY_ERROR_UNKNOWN_DESTROY`). C99 guarantees
-63 significant characters in an internal identifier, and enum constants have no
-linkage, so that is the limit that applies — these fit with room. The 31-character
-figure is C89's, and applies to a standard the library does not claim: the
-`build-linux-c89-headers` lane proves the public headers are *includable* from
-C89 code, not that the library is C89. Weigh this before coining a class name
-longer than `MbedTlsHmacSha256Policy`.
+**On length.** C99 guarantees 63 significant characters in an internal
+identifier, and enum constants have no linkage, so that is the limit that
+applies. What has to hold is therefore not a maximum length but a distinctness
+rule: **no two public identifiers may share their first 63 characters.** A few
+run past 63 in total - the longest are the client-credential codes on the
+TLS-credentials role - and that is safe precisely because each is already
+distinct well inside the limit. Stating the rule rather than the current longest
+name is deliberate: a maximum goes stale every time a constant is added, and
+this paragraph has carried a stale one before.
+
+The 31-character figure is C89's, and applies to a standard the library does not
+claim: the `build-linux-c89-headers` lane proves the public headers are
+*includable* from C89 code, not that the library is C89. Weigh all of this before
+coining a class name as long as `MbedTlsHmacSha256Policy`.
 
 ### Platform classes carry their pack's registry token
 

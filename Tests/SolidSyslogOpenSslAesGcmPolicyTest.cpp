@@ -67,28 +67,28 @@ static bool TestGetKey(void* context, uint8_t* keyOut, size_t capacity, size_t* 
 /* One macro per direction so each EVP step's failure path reads as a one-line
  * test: seal/open must fail closed and report once. Used only inside the Seal
  * fixture (they reference its seal()/open() helpers). */
-#define CHECK_SEAL_REPORTS_ENCRYPT_FAILURE_AT(step)                 \
-    {                                                               \
-        ErrorHandlerFake_Install(nullptr);                          \
-        OpenSslFake_SetGcmStepFails(step);                          \
-        CHECK_FALSE(seal());                                        \
-        CHECK_REPORTED_ERROR(                                       \
-            SOLIDSYSLOG_SEVERITY_ERROR,                             \
-            SOLIDSYSLOG_CAT_SECURITY_POLICY_SEAL_FAILED,            \
-            SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_ENCRYPT_FAILED \
-        );                                                          \
+#define CHECK_SEAL_REPORTS_ENCRYPT_FAILURE_AT(step)         \
+    {                                                       \
+        ErrorHandlerFake_Install(nullptr);                  \
+        OpenSslFake_SetGcmStepFails(step);                  \
+        CHECK_FALSE(seal());                                \
+        CHECK_REPORTED_ERROR(                               \
+            SOLIDSYSLOG_SEVERITY_ERROR,                     \
+            SOLIDSYSLOG_CAT_SECURITY_POLICY_SEAL_FAILED,    \
+            SOLIDSYSLOG_AES_GCM_POLICY_ERROR_ENCRYPT_FAILED \
+        );                                                  \
     }
 
-#define CHECK_OPEN_REPORTS_DECRYPT_FAILURE_AT(step)                 \
-    {                                                               \
-        ErrorHandlerFake_Install(nullptr);                          \
-        OpenSslFake_SetGcmStepFails(step);                          \
-        CHECK_FALSE(open());                                        \
-        CHECK_REPORTED_ERROR(                                       \
-            SOLIDSYSLOG_SEVERITY_ERROR,                             \
-            SOLIDSYSLOG_CAT_SECURITY_POLICY_OPEN_FAILED,            \
-            SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_DECRYPT_FAILED \
-        );                                                          \
+#define CHECK_OPEN_REPORTS_DECRYPT_FAILURE_AT(step)         \
+    {                                                       \
+        ErrorHandlerFake_Install(nullptr);                  \
+        OpenSslFake_SetGcmStepFails(step);                  \
+        CHECK_FALSE(open());                                \
+        CHECK_REPORTED_ERROR(                               \
+            SOLIDSYSLOG_SEVERITY_ERROR,                     \
+            SOLIDSYSLOG_CAT_SECURITY_POLICY_OPEN_FAILED,    \
+            SOLIDSYSLOG_AES_GCM_POLICY_ERROR_DECRYPT_FAILED \
+        );                                                  \
     }
 
 // clang-format off
@@ -222,7 +222,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicy, ExhaustedCreateReportsError)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         SOLIDSYSLOG_CAT_POOL_EXHAUSTED,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_POOL_EXHAUSTED
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_POOL_EXHAUSTED
     );
 }
 
@@ -247,7 +247,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicy, BadConfigReportsError)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_CRITICAL,
         SOLIDSYSLOG_CAT_BAD_CONFIG,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_BAD_CONFIG
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_BAD_CONFIG
     );
 }
 
@@ -283,7 +283,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicy, DestroyOfUnknownHandleReportsWarning)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_WARNING,
         SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
     );
 }
 
@@ -299,7 +299,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicy, DestroyOfStaleHandleReportsWarning)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_WARNING,
         SOLIDSYSLOG_CAT_UNKNOWN_DESTROY,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_UNKNOWN_DESTROY
     );
 }
 
@@ -388,7 +388,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicySeal, SealFailsClosedWhenKeyUnavailable)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_ERROR,
         SOLIDSYSLOG_CAT_SECURITY_POLICY_KEY_UNAVAILABLE,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
     );
 }
 
@@ -401,7 +401,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicySeal, SealFailsClosedWhenKeyIsWrongLength)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_ERROR,
         SOLIDSYSLOG_CAT_SECURITY_POLICY_KEY_UNAVAILABLE,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
     );
 }
 
@@ -415,7 +415,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicySeal, OpenFailsClosedWhenKeyUnavailable)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_ERROR,
         SOLIDSYSLOG_CAT_SECURITY_POLICY_KEY_UNAVAILABLE,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_KEY_UNAVAILABLE
     );
 }
 
@@ -428,7 +428,7 @@ TEST(SolidSyslogOpenSslAesGcmPolicySeal, SealReportsNonceFailure)
     CHECK_REPORTED_ERROR(
         SOLIDSYSLOG_SEVERITY_ERROR,
         SOLIDSYSLOG_CAT_SECURITY_POLICY_SEAL_FAILED,
-        SOLIDSYSLOG_OPENSSL_AES_GCM_POLICY_ERROR_NONCE_FAILED
+        SOLIDSYSLOG_AES_GCM_POLICY_ERROR_NONCE_FAILED
     );
 }
 
