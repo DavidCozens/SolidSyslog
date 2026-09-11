@@ -20,10 +20,15 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
 
     const char* BddTargetTlsConfig_GetHost(void);
     uint16_t BddTargetTlsConfig_GetPort(void);
-    /* NULL where the scenario asked for no trust anchors, which is a
-       configuration the stream is expected to refuse unless a pin names the
-       peer instead. */
-    const char* BddTargetTlsConfig_GetCaBundlePath(void);
+    /* Which trust anchors a connection is made with, as a logical name rather
+       than a path: "ca", "ca-b", or "none" for a configuration with no anchors
+       at all. A path would be meaningless on a target with no filesystem, where
+       the anchors are baked into the image, so each pack's credentials backend
+       resolves the name its own way and one feature file drives every target. */
+    const char* BddTargetTlsConfig_GetTrustAnchorName(void);
+    /* The client credential to present: "client", "cert-only" for the
+       half-supplied case the contract reports and continues through, or "none". */
+    const char* BddTargetTlsConfig_GetClientCredentialName(void);
     /* NULL asks for no name check and no opt-out, "" is the explicit opt-out,
        and anything else is verified against the peer certificate. The three
        are distinct to the library, so the harness has to be able to say all
@@ -62,9 +67,10 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
 
          tls-host  <host>
          tls-port  <number>
-         tls-ca    <path> | none          - none asks for no trust anchors
-         tls-name  <name> | none | ""     - none asks for no name at all
-         tls-pin   <fingerprint> | none   - none clears the list, otherwise appends
+         tls-ca     ca | ca-b | none          - none asks for no trust anchors
+         tls-client client | cert-only | none - what to present for mutual TLS
+         tls-name   <name> | none | ""        - none asks for no name at all
+         tls-pin    <fingerprint> | none      - none clears the list, else appends
 
        Every accepted set moves the version, so the next record reconnects and
        the change is in force from the one after it. */

@@ -5,7 +5,7 @@
 #include "BddTargetTlsSender.h"
 #include "SolidSyslogOpenSslStreamErrors.h"
 #include "SolidSyslogStreamSender.h"
-#include "SolidSyslogOpenSslPemFileCredentials.h"
+#include "BddTargetOpenSslCredentials.h"
 #include "SolidSyslogOpenSslStream.h"
 #include "SolidSyslogWindowsSleep.h"
 #include "SolidSyslogWinsockAddress.h"
@@ -15,7 +15,6 @@ struct SolidSyslogResolver;
 
 static struct SolidSyslogStream* underlyingStream;
 
-static struct SolidSyslogOpenSslCredentials* credentials;
 static struct SolidSyslogStream* tlsStream;
 static struct SolidSyslogAddress* address;
 static struct SolidSyslogSender* sender;
@@ -34,6 +33,15 @@ static void BddTargetTlsSender_MtlsProfile(struct SolidSyslogOpenSslProfile* pro
 
 struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* resolver, bool mtls)
 {
+    if (mtls)
+    {
+        /* The mutual-TLS transport presents a client credential by default. It
+           goes through the same knob a scenario sets, so there is one place the
+           credentials backend reads it from and a scenario can still override
+           it - which is what the client-credential rotation cell does. */
+        (void) BddTargetTlsConfig_SetByName("tls-client", "client");
+    }
+
     underlyingStream = SolidSyslogWinsockTcpStream_Create(NULL);
 
     static struct SolidSyslogOpenSslStreamConfig tlsStreamConfig;
@@ -42,20 +50,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig.Sleep = SolidSyslogWindows_Sleep;
     tlsStreamConfig.Version = BddTargetTlsConfig_GetStreamVersion;
     tlsStreamConfig.Profile = mtls ? BddTargetTlsSender_MtlsProfile : BddTargetTlsSender_TlsProfile;
-    static struct SolidSyslogOpenSslPemFileCredentialsConfig credentialsConfig;
-    credentialsConfig = (struct SolidSyslogOpenSslPemFileCredentialsConfig) {0};
-    if (mtls)
-    {
-        credentialsConfig.CaBundlePath = BddTargetMtlsConfig_GetCaBundlePath();
-        credentialsConfig.ClientCertChainPath = BddTargetMtlsConfig_GetClientCertChainPath();
-        credentialsConfig.ClientKeyPath = BddTargetMtlsConfig_GetClientKeyPath();
-    }
-    else
-    {
-        credentialsConfig.CaBundlePath = BddTargetTlsConfig_GetCaBundlePath();
-    }
-    credentials = SolidSyslogOpenSslPemFileCredentials_Create(&credentialsConfig);
-    tlsStreamConfig.Credentials = credentials;
+    tlsStreamConfig.Credentials = BddTargetOpenSslCredentials_Get();
     tlsStream = SolidSyslogOpenSslStream_Create(&tlsStreamConfig);
 
     address = SolidSyslogWinsockAddress_Create();
@@ -78,7 +73,6 @@ void BddTargetTlsSender_Destroy(void)
     SolidSyslogStreamSender_Destroy(sender);
     SolidSyslogWinsockAddress_Destroy(address);
     SolidSyslogOpenSslStream_Destroy(tlsStream);
-    SolidSyslogOpenSslPemFileCredentials_Destroy(credentials);
     SolidSyslogWinsockTcpStream_Destroy(underlyingStream);
 }
 

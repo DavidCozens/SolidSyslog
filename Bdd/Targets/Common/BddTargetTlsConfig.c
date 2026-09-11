@@ -10,9 +10,11 @@
 #include "SolidSyslogEndpointHost.h"
 #include "SolidSyslogTransport.h"
 
-/* Test CA for BDD. Paths are relative to the working directory the example is
- * launched from (/workspaces/SolidSyslog in the BDD container). */
-static const char* const BDD_TARGET_TLS_CA_BUNDLE_PATH = "Bdd/syslog-ng/tls/ca.pem";
+/* Logical names. Only a credentials backend knows whether a name resolves to a
+ * path or to a buffer baked into the image, which is what lets one feature file
+ * drive a target with a filesystem and one without. */
+static const char* const BDD_TARGET_TLS_DEFAULT_TRUST_ANCHOR = "ca";
+static const char* const BDD_TARGET_TLS_DEFAULT_CLIENT_CREDENTIAL = "none";
 
 /* The value that means something other than itself, wherever a knob has to be
  * able to say "nothing" over a protocol that only carries strings. */
@@ -20,7 +22,6 @@ static const char* const BDD_TARGET_TLS_NONE = "none";
 
 enum
 {
-    BDD_TARGET_TLS_MAX_PATH = 128,
     /* A sha-256 pin in the RFC 5425 4.2.2 form is 103 characters. */
     BDD_TARGET_TLS_MAX_FINGERPRINT = 160,
     BDD_TARGET_TLS_MAX_NAME = 64
@@ -30,8 +31,8 @@ static const char* tlsHost;
 static const char* tlsServerName;
 static bool serverNameSuppressed;
 static uint16_t tlsPort;
-static const char* caBundlePath;
-static char caBundleStorage[BDD_TARGET_TLS_MAX_PATH];
+static const char* trustAnchorName;
+static const char* clientCredentialName;
 static char hostStorage[BDD_TARGET_TLS_MAX_NAME];
 static char serverNameStorage[BDD_TARGET_TLS_MAX_NAME];
 static char fingerprintStorage[BDD_TARGET_TLS_MAX_FINGERPRINTS][BDD_TARGET_TLS_MAX_FINGERPRINT];
@@ -43,7 +44,9 @@ static bool defaultsApplied;
 static void TlsConfig_EnsureDefaults(void);
 static bool TlsConfig_Store(char* destination, size_t size, const char* value);
 static bool TlsConfig_SetPort(const char* value);
-static bool TlsConfig_SetCaBundlePath(const char* value);
+static bool TlsConfig_SetTrustAnchor(const char* value);
+static bool TlsConfig_SetClientCredential(const char* value);
+static bool TlsConfig_SetOneOf(const char* const * known, size_t count, const char* value, const char** out);
 static bool TlsConfig_SetName(const char* value);
 static bool TlsConfig_AddFingerprint(const char* value);
 
@@ -54,7 +57,8 @@ void BddTargetTlsConfig_Reset(void)
     tlsServerName = NULL;
     serverNameSuppressed = false;
     tlsPort = (uint16_t) SOLIDSYSLOG_TLS_DEFAULT_PORT;
-    caBundlePath = BDD_TARGET_TLS_CA_BUNDLE_PATH;
+    trustAnchorName = BDD_TARGET_TLS_DEFAULT_TRUST_ANCHOR;
+    clientCredentialName = BDD_TARGET_TLS_DEFAULT_CLIENT_CREDENTIAL;
     fingerprintCount = 0;
     version = 0;
 }
@@ -103,10 +107,16 @@ uint16_t BddTargetTlsConfig_GetPort(void)
     return tlsPort;
 }
 
-const char* BddTargetTlsConfig_GetCaBundlePath(void)
+const char* BddTargetTlsConfig_GetTrustAnchorName(void)
 {
     TlsConfig_EnsureDefaults();
-    return caBundlePath;
+    return trustAnchorName;
+}
+
+const char* BddTargetTlsConfig_GetClientCredentialName(void)
+{
+    TlsConfig_EnsureDefaults();
+    return clientCredentialName;
 }
 
 const char* BddTargetTlsConfig_GetServerName(void)
@@ -173,7 +183,11 @@ bool BddTargetTlsConfig_SetByName(const char* name, const char* value)
     }
     else if (strcmp(name, "tls-ca") == 0)
     {
-        applied = TlsConfig_SetCaBundlePath(value);
+        applied = TlsConfig_SetTrustAnchor(value);
+    }
+    else if (strcmp(name, "tls-client") == 0)
+    {
+        applied = TlsConfig_SetClientCredential(value);
     }
     else if (strcmp(name, "tls-name") == 0)
     {
@@ -219,25 +233,34 @@ static bool TlsConfig_SetPort(const char* value)
     return ok;
 }
 
-static bool TlsConfig_SetCaBundlePath(const char* value)
+/* Only a name a backend can resolve is accepted, so a typo in a feature file is
+   rejected at the prompt rather than surfacing later as a connection that failed
+   for a reason nobody configured. An empty value is a `set` with the value left
+   off, and matches nothing. */
+static bool TlsConfig_SetOneOf(const char* const * known, size_t count, const char* value, const char** out)
 {
-    bool ok = true;
-    if (strcmp(value, BDD_TARGET_TLS_NONE) == 0)
+    bool ok = false;
+    for (size_t i = 0U; (i < count) && !ok; i++)
     {
-        caBundlePath = NULL;
-    }
-    else
-    {
-        /* An empty value is a `set` with the value left off rather than a
-           setting; the guard is here and not in TlsConfig_Store because
-           tls-name needs "" accepted as the documented opt-out. */
-        ok = (value[0] != '\0') && TlsConfig_Store(caBundleStorage, sizeof(caBundleStorage), value);
-        if (ok)
+        if (strcmp(value, known[i]) == 0)
         {
-            caBundlePath = caBundleStorage;
+            *out = known[i];
+            ok = true;
         }
     }
     return ok;
+}
+
+static bool TlsConfig_SetTrustAnchor(const char* value)
+{
+    static const char* const KNOWN[] = {"ca", "ca-b", "none"};
+    return TlsConfig_SetOneOf(KNOWN, sizeof(KNOWN) / sizeof(KNOWN[0]), value, &trustAnchorName);
+}
+
+static bool TlsConfig_SetClientCredential(const char* value)
+{
+    static const char* const KNOWN[] = {"client", "cert-only", "none"};
+    return TlsConfig_SetOneOf(KNOWN, sizeof(KNOWN) / sizeof(KNOWN[0]), value, &clientCredentialName);
 }
 
 static bool TlsConfig_SetName(const char* value)

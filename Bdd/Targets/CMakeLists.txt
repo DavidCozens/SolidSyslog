@@ -30,6 +30,7 @@ if(SOLIDSYSLOG_POSIX)
     if(SOLIDSYSLOG_OPENSSL)
         list(APPEND LINUX_SOURCES
             Common/BddTargetTlsSender_OpenSsl_PosixTcp.c
+            Common/BddTargetOpenSslCredentials.c
             Common/BddTargetTlsConfig.c
             Common/BddTargetMtlsConfig.c
         )
@@ -66,6 +67,7 @@ elseif(SOLIDSYSLOG_WINSOCK AND HAVE_WINDOWS_PLATFORM)
     if(SOLIDSYSLOG_OPENSSL)
         list(APPEND WINDOWS_SOURCES
             Common/BddTargetTlsSender_OpenSsl_WinsockTcp.c
+            Common/BddTargetOpenSslCredentials.c
             Common/BddTargetTlsConfig.c
             Common/BddTargetMtlsConfig.c
         )
