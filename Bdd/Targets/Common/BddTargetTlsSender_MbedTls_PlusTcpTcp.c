@@ -21,6 +21,7 @@
  */
 
 #include "BddTargetTlsSender.h"
+#include "SolidSyslogMbedTlsStreamErrors.h"
 
 #include "BddTargetMtlsConfig.h"
 #include "BddTargetSwitchConfig.h"
@@ -377,6 +378,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = RtosSleep;
     tlsStreamConfig.Rng = &drbg;
+    tlsStreamConfig.Version = DispatchEndpointVersion;
     tlsStreamConfig.Profile = BddTargetTlsSender_Profile;
     static struct SolidSyslogMbedTlsHandleCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogMbedTlsHandleCredentialsConfig) {0};
@@ -426,4 +428,9 @@ void BddTargetTlsSender_Destroy(void)
 struct mbedtls_ctr_drbg_context* BddTargetTlsSender_GetRng(void)
 {
     return &drbg;
+}
+
+const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void)
+{
+    return &SolidSyslogMbedTlsStreamErrorSource;
 }

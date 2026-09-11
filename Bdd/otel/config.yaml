@@ -34,6 +34,10 @@ receivers:
       tls:
         cert_file: Bdd/syslog-ng/tls/server.pem
         key_file: Bdd/syslog-ng/tls/server.key
+        # Pinned to 1.3 so delivery here proves the version, matching the
+        # ssl-options on the Linux listener. Without it the TLS 1.3 scenario
+        # passes on this runner whatever gets negotiated.
+        min_version: "1.3"
     protocol: rfc5424
     enable_octet_counting: true
   syslog/mtls:
@@ -43,6 +47,69 @@ receivers:
         cert_file: Bdd/syslog-ng/tls/server.pem
         key_file: Bdd/syslog-ng/tls/server.key
         client_ca_file: Bdd/syslog-ng/tls/ca.pem
+        min_version: "1.3"
+    protocol: rfc5424
+    enable_octet_counting: true
+
+  # Right name, issuer the target cannot chain to.
+  syslog/tls_untrusted:
+    tcp:
+      listen_address: "127.0.0.1:6516"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server-untrusted.pem
+        key_file: Bdd/syslog-ng/tls/server-untrusted.key
+        min_version: "1.3"
+    protocol: rfc5424
+    enable_octet_counting: true
+  # Chains to the anchor, claims another identity.
+  syslog/tls_wrongname:
+    tcp:
+      listen_address: "127.0.0.1:6517"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server-wrongname.pem
+        key_file: Bdd/syslog-ng/tls/server-wrongname.key
+        min_version: "1.3"
+    protocol: rfc5424
+    enable_octet_counting: true
+  # No chain at all; reachable only by a pinned target.
+  syslog/tls_selfsigned:
+    tcp:
+      listen_address: "127.0.0.1:6518"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server-selfsigned.pem
+        key_file: Bdd/syslog-ng/tls/server-selfsigned.key
+        min_version: "1.3"
+    protocol: rfc5424
+    enable_octet_counting: true
+  # Leaf presented with its issuer.
+  syslog/tls_chained:
+    tcp:
+      listen_address: "127.0.0.1:6519"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server-chained-fullchain.pem
+        key_file: Bdd/syslog-ng/tls/server-chained.key
+        min_version: "1.3"
+    protocol: rfc5424
+    enable_octet_counting: true
+  # The happy-path certificate over TLS 1.2 only.
+  syslog/tls_12:
+    tcp:
+      listen_address: "127.0.0.1:6520"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server.pem
+        key_file: Bdd/syslog-ng/tls/server.key
+        min_version: "1.2"
+        max_version: "1.2"
+    protocol: rfc5424
+    enable_octet_counting: true
+  # A second collector with its own issuer and name, for the redirect.
+  syslog/tls_b:
+    tcp:
+      listen_address: "127.0.0.1:6521"
+      tls:
+        cert_file: Bdd/syslog-ng/tls/server-b.pem
+        key_file: Bdd/syslog-ng/tls/server-b.key
+        min_version: "1.3"
     protocol: rfc5424
     enable_octet_counting: true
 
@@ -78,6 +145,11 @@ exporters:
     rotation:
       max_megabytes: 10
       max_backups: 1
+  file/tls_b:
+    path: "Bdd/output/received_tls_b.jsonl"
+    rotation:
+      max_megabytes: 10
+      max_backups: 1
 
 service:
   telemetry:
@@ -85,7 +157,7 @@ service:
       level: warn
   pipelines:
     logs:
-      receivers: [syslog/udp, syslog/tcp, syslog/tls, syslog/mtls]
+      receivers: [syslog/udp, syslog/tcp, syslog/tls, syslog/tls_untrusted, syslog/tls_wrongname, syslog/tls_selfsigned, syslog/tls_chained, syslog/tls_12, syslog/mtls, syslog/tls_b]
       exporters: [file]
     logs/udp:
       receivers: [syslog/udp]
@@ -94,8 +166,11 @@ service:
       receivers: [syslog/tcp]
       exporters: [file/tcp]
     logs/tls:
-      receivers: [syslog/tls]
+      receivers: [syslog/tls, syslog/tls_untrusted, syslog/tls_wrongname, syslog/tls_selfsigned, syslog/tls_chained, syslog/tls_12]
       exporters: [file/tls]
+    logs/tls_b:
+      receivers: [syslog/tls_b]
+      exporters: [file/tls_b]
     logs/mtls:
       receivers: [syslog/mtls]
       exporters: [file/mtls]

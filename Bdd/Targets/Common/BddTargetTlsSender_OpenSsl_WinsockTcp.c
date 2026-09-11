@@ -3,6 +3,7 @@
 #include "BddTargetMtlsConfig.h"
 #include "BddTargetTlsConfig.h"
 #include "BddTargetTlsSender.h"
+#include "SolidSyslogOpenSslStreamErrors.h"
 #include "SolidSyslogStreamSender.h"
 #include "SolidSyslogOpenSslPemFileCredentials.h"
 #include "SolidSyslogOpenSslStream.h"
@@ -39,6 +40,7 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
     tlsStreamConfig = (struct SolidSyslogOpenSslStreamConfig) {0};
     tlsStreamConfig.Transport = underlyingStream;
     tlsStreamConfig.Sleep = SolidSyslogWindows_Sleep;
+    tlsStreamConfig.Version = BddTargetTlsConfig_GetStreamVersion;
     tlsStreamConfig.Profile = mtls ? BddTargetTlsSender_MtlsProfile : BddTargetTlsSender_TlsProfile;
     static struct SolidSyslogOpenSslPemFileCredentialsConfig credentialsConfig;
     credentialsConfig = (struct SolidSyslogOpenSslPemFileCredentialsConfig) {0};
@@ -78,4 +80,9 @@ void BddTargetTlsSender_Destroy(void)
     SolidSyslogOpenSslStream_Destroy(tlsStream);
     SolidSyslogOpenSslPemFileCredentials_Destroy(credentials);
     SolidSyslogWinsockTcpStream_Destroy(underlyingStream);
+}
+
+const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void)
+{
+    return &SolidSyslogOpenSslStreamErrorSource;
 }

@@ -7,6 +7,7 @@
 
 SOLIDSYSLOG_EXTERN_C_BEGIN
 
+    struct SolidSyslogErrorSource;
     struct SolidSyslogResolver;
     struct SolidSyslogSender;
     struct mbedtls_ctr_drbg_context;
@@ -22,6 +23,13 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
      * failed - the policy's nonce draw then fails closed, which is the correct
      * degraded behaviour. */
     struct mbedtls_ctr_drbg_context* BddTargetTlsSender_GetRng(void);
+
+    /* The error source the linked TLS stream reports through, or NULL where this
+     * target has no TLS. Only this file knows which pack is linked, so asking it
+     * lets the error handler mark a TLS-stream report without the handler, or a
+     * step definition, naming a backend - which is the one thing the equivalence
+     * matrix must not do. */
+    const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void);
 
 SOLIDSYSLOG_EXTERN_C_END
 

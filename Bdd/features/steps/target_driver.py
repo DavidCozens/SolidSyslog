@@ -60,6 +60,13 @@ _FREERTOS_SET_TRANSLATION = {
     # must reach the rebuild before `--store file` (the order key sorts it ahead).
     "--security-policy": "security-policy",
     "--store": "store",
+    # S39.04 TLS matrix knobs. Each maps to a `set` name owned by
+    # BddTargetTlsConfig, which the FreeRTOS OnSet falls through to.
+    "--tls-host": "tls-host",
+    "--tls-port": "tls-port",
+    "--tls-ca": "tls-ca",
+    "--tls-name": "tls-name",
+    "--tls-pin": "tls-pin",
 }
 
 # Flags emitted as `set NAME 1` (with no separate value in the harness's

@@ -339,6 +339,7 @@ static void DestroyStore(struct SolidSyslogStore* store, const struct BddTargetW
 int BddTargetWindows_Run(int argc, char* argv[])
 {
     BddTargetStderrErrorHandler_Install();
+    BddTargetStderrErrorHandler_SetTlsSource(BddTargetTlsSender_ErrorSource());
 
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -415,7 +416,13 @@ int BddTargetWindows_Run(int argc, char* argv[])
         .Msg = options.Msg,
     };
 
-    BddTargetInteractive_Run(solidSyslog, &message, stdin, BddTargetSwitchConfig_SetByName, NULL);
+    BddTargetInteractive_Run(
+        solidSyslog,
+        &message,
+        stdin,
+        BddTargetSwitchConfig_SetByName,
+        BddTargetTlsConfig_SetByName
+    );
 
     shutdownFlag = true;
     WaitForSingleObject(serviceThread, INFINITE);
