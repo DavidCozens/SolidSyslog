@@ -19,9 +19,13 @@ from behave import given, then
 
 from tls_error_codes import tls_error_code
 
-# BddTargetStderrErrorHandler.c writes both a fatal and a non-fatal form; the
-# detail is in the same place in each.
-_REPORT = re.compile(r"detail=(-?\d+)")
+# Detail codes are per-class, so a bare `detail=` is ambiguous: a resolver fault
+# reporting 16 would be indistinguishable from PEER_CERTIFICATE_UNTRUSTED. Both
+# handlers mark a report from the TLS-stream role, and only those are read here.
+# Filtering on the mark rather than on the source name keeps this pack-agnostic:
+# the two names share no pattern that excludes PosixTcpStream or StreamSender,
+# and a third TLS pack would otherwise have to be added to this regex.
+_REPORT = re.compile(r"role=tls cat=\d+ detail=(-?\d+)")
 
 
 def _target_output(context):

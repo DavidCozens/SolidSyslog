@@ -40,3 +40,8 @@ struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* 
 void BddTargetTlsSender_Destroy(void)
 {
 }
+
+const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void)
+{
+    return NULL;
+}

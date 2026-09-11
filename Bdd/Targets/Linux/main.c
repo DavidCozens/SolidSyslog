@@ -290,6 +290,7 @@ static void DestroyStore(struct SolidSyslogStore* store, const struct BddTargetO
 int main(int argc, char* argv[])
 {
     BddTargetStderrErrorHandler_Install();
+    BddTargetStderrErrorHandler_SetTlsSource(BddTargetTlsSender_ErrorSource());
 
     /* BDD harness can override the TLS/mTLS host (defaults to "syslog-ng",
        the Linux compose service name). Same env-var contract as the Windows

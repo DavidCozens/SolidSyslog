@@ -339,6 +339,7 @@ static void DestroyStore(struct SolidSyslogStore* store, const struct BddTargetW
 int BddTargetWindows_Run(int argc, char* argv[])
 {
     BddTargetStderrErrorHandler_Install();
+    BddTargetStderrErrorHandler_SetTlsSource(BddTargetTlsSender_ErrorSource());
 
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)

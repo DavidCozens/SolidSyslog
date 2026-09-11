@@ -4,6 +4,7 @@
 #include "BddTargetMtlsConfig.h"
 #include "BddTargetTlsConfig.h"
 #include "BddTargetTlsSender.h"
+#include "SolidSyslogOpenSslStreamErrors.h"
 #include "SolidSyslogPosixAddress.h"
 #include "SolidSyslogPosixSleep.h"
 #include "SolidSyslogPosixTcpStream.h"
@@ -80,4 +81,9 @@ void BddTargetTlsSender_Destroy(void)
     SolidSyslogOpenSslStream_Destroy(tlsStream);
     SolidSyslogOpenSslPemFileCredentials_Destroy(credentials);
     SolidSyslogPosixTcpStream_Destroy(underlyingStream);
+}
+
+const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void)
+{
+    return &SolidSyslogOpenSslStreamErrorSource;
 }

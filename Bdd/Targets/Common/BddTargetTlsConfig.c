@@ -161,7 +161,7 @@ bool BddTargetTlsConfig_SetByName(const char* name, const char* value)
     bool applied = false;
     if (strcmp(name, "tls-host") == 0)
     {
-        applied = TlsConfig_Store(hostStorage, sizeof(hostStorage), value);
+        applied = (value[0] != '\0') && TlsConfig_Store(hostStorage, sizeof(hostStorage), value);
         if (applied)
         {
             tlsHost = hostStorage;
@@ -228,7 +228,10 @@ static bool TlsConfig_SetCaBundlePath(const char* value)
     }
     else
     {
-        ok = TlsConfig_Store(caBundleStorage, sizeof(caBundleStorage), value);
+        /* An empty value is a `set` with the value left off rather than a
+           setting; the guard is here and not in TlsConfig_Store because
+           tls-name needs "" accepted as the documented opt-out. */
+        ok = (value[0] != '\0') && TlsConfig_Store(caBundleStorage, sizeof(caBundleStorage), value);
         if (ok)
         {
             caBundlePath = caBundleStorage;

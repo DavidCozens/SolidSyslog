@@ -178,3 +178,28 @@ TEST(BddTargetTlsConfig, TheEndpointCarriesTheHostAndPort)
     STRCMP_EQUAL("collector-b", SolidSyslogFormatter_AsFormattedBuffer(formatter));
     UNSIGNED_LONGS_EQUAL(6521, endpoint.Port);
 }
+
+TEST(BddTargetTlsConfig, AHostWithNoValueIsRejectedRatherThanEmptied)
+{
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-host", ""));
+    STRCMP_EQUAL("syslog-ng", BddTargetTlsConfig_GetHost());
+}
+
+TEST(BddTargetTlsConfig, ATrustAnchorWithNoValueIsRejectedRatherThanEmptied)
+{
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-ca", ""));
+    CHECK_CA_PATH("Bdd/syslog-ng/tls/ca.pem");
+}
+
+TEST(BddTargetTlsConfig, ARejectedEmptyValueLeavesTheVersionAlone)
+{
+    uint32_t before = BddTargetTlsConfig_GetStreamVersion(nullptr);
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-host", ""));
+    UNSIGNED_LONGS_EQUAL(before, BddTargetTlsConfig_GetStreamVersion(nullptr));
+}
+
+TEST(BddTargetTlsConfig, AnEmptyNameIsStillTheOptOut)
+{
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-name", ""));
+    CHECK_SERVER_NAME("");
+}

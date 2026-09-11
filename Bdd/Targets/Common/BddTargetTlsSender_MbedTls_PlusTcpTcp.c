@@ -21,6 +21,7 @@
  */
 
 #include "BddTargetTlsSender.h"
+#include "SolidSyslogMbedTlsStreamErrors.h"
 
 #include "BddTargetMtlsConfig.h"
 #include "BddTargetSwitchConfig.h"
@@ -427,4 +428,9 @@ void BddTargetTlsSender_Destroy(void)
 struct mbedtls_ctr_drbg_context* BddTargetTlsSender_GetRng(void)
 {
     return &drbg;
+}
+
+const struct SolidSyslogErrorSource* BddTargetTlsSender_ErrorSource(void)
+{
+    return &SolidSyslogMbedTlsStreamErrorSource;
 }

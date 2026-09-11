@@ -259,10 +259,16 @@ static void ErrorHandlerEx(void* context, const struct SolidSyslogErrorEvent* ev
         sourceName = source->Name;
     }
     const char* message = BddTargetErrorText_Category(event->Category);
+    /* Same marking as the hosted handler: detail codes are per-class, so a step
+       needs to know the report came from the TLS-stream role before it can read
+       one as a portable code. */
+    const struct SolidSyslogErrorSource* tlsSource = BddTargetTlsSender_ErrorSource();
+    const char* role = ((tlsSource != NULL) && (source == tlsSource)) ? "role=tls " : "";
     (void) printf(
-        "[solidsyslog] severity=%d [%s cat=%u detail=%ld] %s\n",
+        "[solidsyslog] severity=%d [%s %scat=%u detail=%ld] %s\n",
         (int) event->Severity,
         sourceName,
+        role,
         (unsigned) event->Category,
         (long) event->Detail,
         message

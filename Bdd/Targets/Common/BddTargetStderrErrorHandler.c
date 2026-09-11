@@ -9,6 +9,12 @@
 #include "SolidSyslogPrival.h"
 
 static bool fatalOnError = true;
+static const struct SolidSyslogErrorSource* tlsStreamSource;
+
+void BddTargetStderrErrorHandler_SetTlsSource(const struct SolidSyslogErrorSource* source)
+{
+    tlsStreamSource = source;
+}
 
 void BddTargetStderrErrorHandler_SetFatal(bool fatal)
 {
@@ -25,12 +31,17 @@ static void StderrErrorHandlerEx(void* context, const struct SolidSyslogErrorEve
         sourceName = source->Name;
     }
     const char* message = BddTargetErrorText_Category(event->Category);
+    /* Detail codes are per-class, so a number is only meaningful once the class
+       is known. Marking the TLS-stream role lets a step assert a portable detail
+       without matching the backend's name. */
+    const char* role = ((tlsStreamSource != NULL) && (source == tlsStreamSource)) ? "role=tls " : "";
     if (fatalOnError && (event->Severity <= SOLIDSYSLOG_SEVERITY_ERROR))
     {
         (void) fprintf(
             stderr,
-            "BDD-TARGET: FATAL: [%s cat=%u detail=%ld] %s\n",
+            "BDD-TARGET: FATAL: [%s %scat=%u detail=%ld] %s\n",
             sourceName,
+            role,
             (unsigned) event->Category,
             (long) event->Detail,
             message
@@ -42,9 +53,10 @@ static void StderrErrorHandlerEx(void* context, const struct SolidSyslogErrorEve
     {
         (void) fprintf(
             stderr,
-            "[solidsyslog] severity=%d [%s cat=%u detail=%ld] %s\n",
+            "[solidsyslog] severity=%d [%s %scat=%u detail=%ld] %s\n",
             (int) event->Severity,
             sourceName,
+            role,
             (unsigned) event->Category,
             (long) event->Detail,
             message
