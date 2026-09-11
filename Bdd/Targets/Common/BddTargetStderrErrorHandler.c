@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "BddTargetErrorText.h"
 #include "SolidSyslogError.h"
@@ -16,9 +17,18 @@ void BddTargetStderrErrorHandler_SetTlsSource(const struct SolidSyslogErrorSourc
     tlsStreamSource = source;
 }
 
-void BddTargetStderrErrorHandler_SetFatal(bool fatal)
+bool BddTargetStderrErrorHandler_SetByName(const char* name, const char* value)
 {
-    fatalOnError = fatal;
+    bool applied = false;
+    if (strcmp(name, "errors-fatal") == 0)
+    {
+        applied = (strcmp(value, "0") == 0) || (strcmp(value, "1") == 0);
+        if (applied)
+        {
+            fatalOnError = (value[0] == '1');
+        }
+    }
+    return applied;
 }
 
 static void StderrErrorHandlerEx(void* context, const struct SolidSyslogErrorEvent* event)

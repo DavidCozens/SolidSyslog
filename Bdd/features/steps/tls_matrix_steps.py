@@ -14,6 +14,7 @@ twice, so what both need lives in the plain modules beside them.
 import hashlib
 import pathlib
 import ssl
+import time
 
 from behave import given, then
 
@@ -28,6 +29,7 @@ _TLS_MATERIAL = pathlib.Path(__file__).resolve().parents[2] / "syslog-ng" / "tls
 # names the identity and no feature file names a port or a file.
 _COLLECTORS = {
     "anchor-signed": (6514, "server.pem"),
+    "untrusted": (6516, "server-untrusted.pem"),
     "wrong-name": (6517, "server-wrongname.pem"),
     "self-signed": (6518, "server-selfsigned.pem"),
     "chained": (6519, "server-chained.pem"),
@@ -38,7 +40,11 @@ _COLLECTORS = {
 @then('the target reports TLS detail "{name}"')
 def step_target_reports_tls_detail(context, name):
     expected = tls_error_code(name)
+    deadline = time.monotonic() + 20
     reported = reported_details(context.interactive_process)
+    while (expected not in reported) and (time.monotonic() < deadline):
+        time.sleep(0.1)
+        reported = reported_details(context.interactive_process)
     assert expected in reported, (
         f"Expected TLS detail {name} ({expected}) in the target's reports; "
         f"saw {reported}.\n--- target output ---\n{target_output(context.interactive_process)}"
@@ -64,6 +70,14 @@ def step_collector_presents(context, identity):
 @given('the BDD target trusts no certificate authority')
 def step_target_trusts_nothing(context):
     tls_set(context, "tls-ca", "none")
+
+
+@given('the BDD target tolerates a refused handshake')
+def step_target_tolerates_refusal(context):
+    """A refusal is reported at ERROR, which ends a hosted target by default so
+    that an unexpected fault fails a scenario loudly rather than as a timeout.
+    A cell that expects one says so."""
+    tls_set(context, "errors-fatal", "0")
 
 
 @given('the BDD target opts out of the peer name check')

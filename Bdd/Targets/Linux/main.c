@@ -287,6 +287,18 @@ static void DestroyStore(struct SolidSyslogStore* store, const struct BddTargetO
     /* else: NullStore is shared and immutable - nothing to destroy. */
 }
 
+/* Two owners of `set` names on this target, tried in turn: the error handler's
+   own knob first, then everything BddTargetTlsConfig owns. */
+static bool OnSet(const char* name, const char* value)
+{
+    bool applied = BddTargetStderrErrorHandler_SetByName(name, value);
+    if (!applied)
+    {
+        applied = BddTargetTlsConfig_SetByName(name, value);
+    }
+    return applied;
+}
+
 int main(int argc, char* argv[])
 {
     BddTargetStderrErrorHandler_Install();
@@ -359,13 +371,7 @@ int main(int argc, char* argv[])
         .Msg = options.Msg,
     };
 
-    BddTargetInteractive_Run(
-        solidSyslog,
-        &message,
-        stdin,
-        BddTargetSwitchConfig_SetByName,
-        BddTargetTlsConfig_SetByName
-    );
+    BddTargetInteractive_Run(solidSyslog, &message, stdin, BddTargetSwitchConfig_SetByName, OnSet);
 
     shutdown_flag = true;
     pthread_join(serviceThread, NULL);

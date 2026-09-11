@@ -23,6 +23,7 @@ from environment import (
     otel_start_oracle,
 )
 from target_driver import apply_extra_args, spawn_example_process, stop_example_process
+from tls_reports import reported_details
 
 PER_TRANSPORT_LOG_SYSLOG_NG = {
     "udp": RECEIVED_UDP_LOG,
@@ -442,6 +443,12 @@ def wait_for_messages(context, expected_messages):
     context.message_count = len(context.all_lines)
 
 
+def settle_prompts(process, count):
+    """Consume the replies to commands someone else wrote."""
+    for _ in range(count):
+        wait_for_prompt(process)
+
+
 def apply_tls_settings(context, process):
     """Deliver the TLS knobs a scenario configured, over the prompt protocol.
 
@@ -489,7 +496,7 @@ def run_example(context, extra_args=None, expected_messages=1, command="send"):
 
     try:
         wait_for_prompt(process)
-        apply_extra_args(context, process, extra_args)
+        settle_prompts(process, apply_extra_args(context, process, extra_args))
         apply_tls_settings(context, process)
         send_command(process, f"{command} {expected_messages}")
         wait_for_messages(context, expected_messages)
@@ -624,7 +631,11 @@ def start_bdd_target_process(context, extra_args):
     )
     context.example_pid = context.interactive_process.pid
     wait_for_prompt(context.interactive_process)
-    apply_extra_args(context, context.interactive_process, extra_args)
+    settle_prompts(
+        context.interactive_process,
+        apply_extra_args(context, context.interactive_process, extra_args),
+    )
+    apply_tls_settings(context, context.interactive_process)
 
 
 @given("the BDD target is running with transport {transport:w}")
@@ -865,6 +876,17 @@ def step_bdd_target_sends_message(context):
 @when("the BDD target sends a custom syslog message")
 def step_bdd_target_sends_custom_message(context):
     run_example(context, command="send-custom")
+
+
+@when("the BDD target attempts to send a syslog message over {transport:w}")
+def step_bdd_target_attempts_to_send(context, transport):
+    """Send one message that is not expected to arrive.
+
+    Nothing is waited for here and the target is left running, so the steps
+    that follow read the decision it reached rather than a delivery.
+    """
+    start_bdd_target_process(context, ["--transport", transport])
+    send_command(context.interactive_process, "send 1")
 
 
 @when("the BDD target sends a syslog message with transport {transport}")
@@ -1470,6 +1492,46 @@ def wait_for_per_transport_messages(context, transport, expected):
                 f"{path} received {actual} of {expected} messages within 5 seconds"
             )
         time.sleep(0.1)
+
+
+@then("the BDD target is still running")
+def step_target_still_running(context):
+    """The refusal ended the connection, not the application.
+
+    A refused handshake is reported to the integrator's error handler, which
+    decides what happens next; this target's handler keeps going when a cell
+    has said a refusal is expected. Without this the cell would pass on a
+    target that died at the first report, and prove nothing about delivery.
+    """
+    process = context.interactive_process
+    assert process.poll() is None, (
+        f"BDD target exited with {process.returncode} rather than carrying on"
+    )
+
+
+@then("the syslog oracle receives no message over {transport:w}")
+def step_check_nothing_received(context, transport):
+    """Nothing arrived over that transport, once the target has decided.
+
+    The wait is on the target's own report rather than on a fixed delay - a
+    report is what says a decision has been reached - and a message arriving
+    ends it just as a report does, so what fails is this assertion rather than
+    a timeout.
+    """
+    path = per_transport_log(context, transport)
+    baseline = context.lines_before_per_transport.get(transport, 0)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        decided = bool(reported_details(context.interactive_process))
+        delivered = oracle_record_count(path, context.oracle_format) - baseline
+        if decided or delivered:
+            break
+        time.sleep(0.1)
+
+    actual = oracle_record_count(path, context.oracle_format) - baseline
+    assert actual == 0, (
+        f"Expected no {transport} message, got {actual} in {path}"
+    )
 
 
 @then("the syslog oracle receives {count:d} message over {transport:w}")
