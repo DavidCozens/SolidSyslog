@@ -18,6 +18,8 @@ TLS_MATERIAL = pathlib.Path(__file__).resolve().parents[2] / "syslog-ng" / "tls"
 
 _COLLECTORS = {
     "anchor-signed": (6514, "server.pem"),
+    # The same certificate, on the listener that demands one back.
+    "mtls-required": (6515, "server.pem"),
     "untrusted": (6516, "server-untrusted.pem"),
     "wrong-name": (6517, "server-wrongname.pem"),
     "self-signed": (6518, "server-selfsigned.pem"),

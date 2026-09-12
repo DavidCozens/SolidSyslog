@@ -1519,6 +1519,11 @@ def step_client_redirected(context, identity):
     apply_tls_setting(context.interactive_process, "tls-port", str(port))
 
 
+@when('the client is given the client credential "{credential}"')
+def step_client_given_client_credential(context, credential):
+    apply_tls_setting(context.interactive_process, "tls-client", credential)
+
+
 @when("the client switches to transport {transport:w}")
 def step_client_switches_transport(context, transport):
     send_command(context.interactive_process, f"switch {transport}")

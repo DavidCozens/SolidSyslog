@@ -131,3 +131,14 @@ Feature: TLS equivalence matrix
     And the client sends a message
     Then the syslog oracle receives 1 message over tls_b
     And the target reports no TLS fault
+
+  Scenario: Rotating in the client credential lets a refused device deliver
+    Given the syslog oracle is running
+    And the collector presents "mtls-required"
+    And the BDD target tolerates a refused handshake
+    And the BDD target is running with default transport tls
+    When the client sends a message
+    Then the syslog oracle receives no message over mtls
+    When the client is given the client credential "client"
+    And the client sends a message
+    Then the syslog oracle receives 1 message over mtls
