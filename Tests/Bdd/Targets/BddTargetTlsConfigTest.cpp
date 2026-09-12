@@ -13,6 +13,7 @@ enum
 #define CHECK_TRUST_ANCHOR(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetTrustAnchorName())
 #define CHECK_CLIENT_CREDENTIAL(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetClientCredentialName())
 #define CHECK_SERVER_NAME(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetServerName())
+#define CHECK_CIPHER_POLICY(expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetCipherPolicyName())
 #define CHECK_PIN_COUNT(expected) UNSIGNED_LONGS_EQUAL(expected, BddTargetTlsConfig_GetPeerFingerprintCount())
 #define CHECK_PIN_AT(index, expected) STRCMP_EQUAL(expected, BddTargetTlsConfig_GetPeerFingerprints()[index])
 
@@ -76,6 +77,29 @@ TEST(BddTargetTlsConfig, AnUnknownClientCredentialNameIsRejected)
 {
     CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-client", "certificate"));
     CHECK_CLIENT_CREDENTIAL("none");
+}
+
+TEST(BddTargetTlsConfig, TheLibraryDefaultCipherPolicyIsInForceUntilOneIsChosen)
+{
+    CHECK_CIPHER_POLICY("default");
+}
+
+TEST(BddTargetTlsConfig, ASuiteTheCollectorOffersCanBeAskedFor)
+{
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-cipher", "offered"));
+    CHECK_CIPHER_POLICY("offered");
+}
+
+TEST(BddTargetTlsConfig, ASuiteTheCollectorDoesNotOfferCanBeAskedFor)
+{
+    CHECK_TRUE(BddTargetTlsConfig_SetByName("tls-cipher", "unoffered"));
+    CHECK_CIPHER_POLICY("unoffered");
+}
+
+TEST(BddTargetTlsConfig, AnUnknownCipherPolicyNameIsRejectedAndChangesNothing)
+{
+    CHECK_FALSE(BddTargetTlsConfig_SetByName("tls-cipher", "ECDHE-RSA-AES128-GCM-SHA256"));
+    CHECK_CIPHER_POLICY("default");
 }
 
 TEST(BddTargetTlsConfig, ServerNameFallsBackToTheHost)

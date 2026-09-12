@@ -35,6 +35,7 @@
 #include "SolidSyslogStreamSender.h"
 
 #include <mbedtls/ctr_drbg.h>
+#include <mbedtls/ssl_ciphersuites.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/platform.h>
@@ -359,10 +360,39 @@ static uint32_t DispatchEndpointVersion(void* context)
 /* Plain-TLS and mTLS share one SNI on this oracle (CN/SAN = "syslog-ng"), so
  * BddTargetTlsConfig_GetServerName and BddTargetMtlsConfig_GetServerName return
  * the same string. Use the TLS one to make the equivalence explicit. */
+static void BddTargetTlsSender_ApplyCipherPolicy(struct SolidSyslogMbedTlsProfile* profile);
+
 static void BddTargetTlsSender_Profile(struct SolidSyslogMbedTlsProfile* profile, void* context)
 {
     (void) context;
     profile->ServerName = BddTargetTlsConfig_GetServerName();
+    BddTargetTlsSender_ApplyCipherPolicy(profile);
+}
+
+/* One intent token, one backend-typed list. Mbed TLS covers both TLS versions
+   with a single array, so each token names its suite at either version - a
+   policy that bound only the TLS 1.2 half would leave a 1.3 connection free to
+   negotiate whatever both ends prefer. The arrays are static so they outlive
+   this call; Mbed TLS does not copy them. */
+static void BddTargetTlsSender_ApplyCipherPolicy(struct SolidSyslogMbedTlsProfile* profile)
+{
+    static const int OFFERED[] = {MBEDTLS_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, MBEDTLS_TLS1_3_AES_128_GCM_SHA256, 0};
+    static const int UNOFFERED[] = {MBEDTLS_TLS_DHE_RSA_WITH_AES_128_CCM_8, MBEDTLS_TLS1_3_AES_128_CCM_8_SHA256, 0};
+
+    const char* policy = BddTargetTlsConfig_GetCipherPolicyName();
+    if (strcmp(policy, "offered") == 0)
+    {
+        profile->CipherSuites = OFFERED;
+    }
+    else if (strcmp(policy, "unoffered") == 0)
+    {
+        profile->CipherSuites = UNOFFERED;
+    }
+    else
+    {
+        /* "default" - whatever the build enables, which is what an integrator
+           who supplies no policy gets. */
+    }
 }
 
 struct SolidSyslogSender* BddTargetTlsSender_Create(struct SolidSyslogResolver* resolver, bool mtls)

@@ -16,21 +16,45 @@ import time
 
 from behave import given, then
 
+from syslog_severities import severity_value
 from tls_collectors import fingerprint_of, listener
 from tls_error_codes import tls_error_code
-from tls_reports import reported_details, target_output
+from tls_reports import reported_details, reported_reports, target_output
+
+REPORT_TIMEOUT_SECONDS = 20
+
+
+def await_report(context, expected, read):
+    """Everything reported once `expected` has been, or the budget has run out.
+
+    A refusal is reported when a connection is attempted rather than when the
+    message is handed over, so a step asserting one has to wait for it.
+    """
+    process = context.interactive_process
+    deadline = time.monotonic() + REPORT_TIMEOUT_SECONDS
+    reported = read(process)
+    while (expected not in reported) and (time.monotonic() < deadline):
+        time.sleep(0.1)
+        reported = read(process)
+    return reported
 
 
 @then('the target reports TLS detail "{name}"')
 def step_target_reports_tls_detail(context, name):
     expected = tls_error_code(name)
-    deadline = time.monotonic() + 20
-    reported = reported_details(context.interactive_process)
-    while (expected not in reported) and (time.monotonic() < deadline):
-        time.sleep(0.1)
-        reported = reported_details(context.interactive_process)
+    reported = await_report(context, expected, reported_details)
     assert expected in reported, (
         f"Expected TLS detail {name} ({expected}) in the target's reports; "
+        f"saw {reported}.\n--- target output ---\n{target_output(context.interactive_process)}"
+    )
+
+
+@then('the target reports TLS detail "{name}" at severity {severity}')
+def step_target_reports_tls_detail_at_severity(context, name, severity):
+    expected = (severity_value(severity), tls_error_code(name))
+    reported = await_report(context, expected, reported_reports)
+    assert expected in reported, (
+        f"Expected TLS detail {name} at {severity} {expected} in the target's reports; "
         f"saw {reported}.\n--- target output ---\n{target_output(context.interactive_process)}"
     )
 
@@ -69,12 +93,37 @@ def step_target_tolerates_refusal(context):
     tls_set(context, "errors-fatal", "0")
 
 
+@given('the BDD target declares no expected peer name')
+def step_target_declares_no_name(context):
+    tls_set(context, "tls-name", "none")
+
+
+@given('the BDD target asks for a suite the collector offers')
+def step_target_asks_for_an_offered_suite(context):
+    tls_set(context, "tls-cipher", "offered")
+
+
+@given('the BDD target asks for a suite the collector does not offer')
+def step_target_asks_for_an_unoffered_suite(context):
+    tls_set(context, "tls-cipher", "unoffered")
+
+
+@given('the BDD target holds half a client credential')
+def step_target_holds_half_a_client_credential(context):
+    tls_set(context, "tls-client", "cert-only")
+
+
 @given('the BDD target opts out of the peer name check')
 def step_target_opts_out_of_name_check(context):
     """An empty expected name is the deliberate opt-out, as against no name at
     all: the integrator has said there is nothing to check rather than left it
     unsaid, so the library connects chain-only and reports nothing."""
     tls_set(context, "tls-name", "")
+
+
+@given('the sha-1 fingerprint of "{identity}" is pinned')
+def step_pin_certificate_by_sha1(context, identity):
+    tls_set(context, "tls-pin", fingerprint_of(identity, "sha-1"))
 
 
 @given('the fingerprint of "{identity}" is pinned')

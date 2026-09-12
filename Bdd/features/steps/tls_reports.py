@@ -15,7 +15,7 @@ and a third TLS pack would otherwise have to be added to this regex.
 
 import re
 
-_REPORT = re.compile(r"role=tls cat=\d+ detail=(-?\d+)")
+_REPORT = re.compile(r"(?:severity=(\d+) )?\[[^\]]*role=tls cat=\d+ detail=(-?\d+)")
 
 
 def target_output(process):
@@ -31,6 +31,18 @@ def target_output(process):
     return "\n".join(chunks)
 
 
+def reported_reports(process):
+    """Every TLS-stream report so far, as (severity, detail).
+
+    The severity is None for a report the target treated as fatal - that form
+    names no severity because reaching it is what ERROR means to the handler.
+    """
+    return [
+        (int(severity) if severity else None, int(detail))
+        for severity, detail in _REPORT.findall(target_output(process))
+    ]
+
+
 def reported_details(process):
     """Every TLS-stream detail code the target has reported so far."""
-    return [int(value) for value in _REPORT.findall(target_output(process))]
+    return [detail for _, detail in reported_reports(process)]

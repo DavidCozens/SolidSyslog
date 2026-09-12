@@ -24,6 +24,8 @@ _COLLECTORS = {
     "wrong-name": (6517, "server-wrongname.pem"),
     "self-signed": (6518, "server-selfsigned.pem"),
     "chained": (6519, "server-chained.pem"),
+    # The happy-path certificate, offered over TLS 1.2 only.
+    "tls-1-2": (6520, "server.pem"),
     "collector-b": (6521, "server-b.pem"),
 }
 

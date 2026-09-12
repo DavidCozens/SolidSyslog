@@ -15,6 +15,7 @@
  * drive a target with a filesystem and one without. */
 static const char* const BDD_TARGET_TLS_DEFAULT_TRUST_ANCHOR = "ca";
 static const char* const BDD_TARGET_TLS_DEFAULT_CLIENT_CREDENTIAL = "none";
+static const char* const BDD_TARGET_TLS_DEFAULT_CIPHER_POLICY = "default";
 
 /* The value that means something other than itself, wherever a knob has to be
  * able to say "nothing" over a protocol that only carries strings. */
@@ -33,6 +34,7 @@ static bool serverNameSuppressed;
 static uint16_t tlsPort;
 static const char* trustAnchorName;
 static const char* clientCredentialName;
+static const char* cipherPolicyName;
 static char hostStorage[BDD_TARGET_TLS_MAX_NAME];
 static char serverNameStorage[BDD_TARGET_TLS_MAX_NAME];
 static char fingerprintStorage[BDD_TARGET_TLS_MAX_FINGERPRINTS][BDD_TARGET_TLS_MAX_FINGERPRINT];
@@ -46,6 +48,7 @@ static bool TlsConfig_Store(char* destination, size_t size, const char* value);
 static bool TlsConfig_SetPort(const char* value);
 static bool TlsConfig_SetTrustAnchor(const char* value);
 static bool TlsConfig_SetClientCredential(const char* value);
+static bool TlsConfig_SetCipherPolicy(const char* value);
 static bool TlsConfig_SetOneOf(const char* const * known, size_t count, const char* value, const char** out);
 static bool TlsConfig_SetName(const char* value);
 static bool TlsConfig_AddFingerprint(const char* value);
@@ -59,6 +62,7 @@ void BddTargetTlsConfig_Reset(void)
     tlsPort = (uint16_t) SOLIDSYSLOG_TLS_DEFAULT_PORT;
     trustAnchorName = BDD_TARGET_TLS_DEFAULT_TRUST_ANCHOR;
     clientCredentialName = BDD_TARGET_TLS_DEFAULT_CLIENT_CREDENTIAL;
+    cipherPolicyName = BDD_TARGET_TLS_DEFAULT_CIPHER_POLICY;
     fingerprintCount = 0;
     version = 0;
 }
@@ -130,6 +134,12 @@ const char* BddTargetTlsConfig_GetServerName(void)
     return result;
 }
 
+const char* BddTargetTlsConfig_GetCipherPolicyName(void)
+{
+    TlsConfig_EnsureDefaults();
+    return cipherPolicyName;
+}
+
 const char* const * BddTargetTlsConfig_GetPeerFingerprints(void)
 {
     TlsConfig_EnsureDefaults();
@@ -188,6 +198,10 @@ bool BddTargetTlsConfig_SetByName(const char* name, const char* value)
     else if (strcmp(name, "tls-client") == 0)
     {
         applied = TlsConfig_SetClientCredential(value);
+    }
+    else if (strcmp(name, "tls-cipher") == 0)
+    {
+        applied = TlsConfig_SetCipherPolicy(value);
     }
     else if (strcmp(name, "tls-name") == 0)
     {
@@ -261,6 +275,12 @@ static bool TlsConfig_SetClientCredential(const char* value)
 {
     static const char* const KNOWN[] = {"client", "cert-only", "none"};
     return TlsConfig_SetOneOf(KNOWN, sizeof(KNOWN) / sizeof(KNOWN[0]), value, &clientCredentialName);
+}
+
+static bool TlsConfig_SetCipherPolicy(const char* value)
+{
+    static const char* const KNOWN[] = {"offered", "unoffered"};
+    return TlsConfig_SetOneOf(KNOWN, sizeof(KNOWN) / sizeof(KNOWN[0]), value, &cipherPolicyName);
 }
 
 static bool TlsConfig_SetName(const char* value)
