@@ -87,6 +87,7 @@ static size_t LwipRawTcpStream_DrainHeadBytes(struct SolidSyslogLwipRawTcpStream
 static void LwipRawTcpStream_EnqueueRxPbuf(struct SolidSyslogLwipRawTcpStream* self, struct pbuf* p);
 static void LwipRawTcpStream_DrainAllQueuedPbufs(struct SolidSyslogLwipRawTcpStream* self);
 static void LwipRawTcpStream_ClosePcb(struct SolidSyslogLwipRawTcpStream* self);
+static void LwipRawTcpStream_DetachPcb(struct tcp_pcb* pcb);
 
 static err_t LwipRawTcpStream_ConnectedCallback(void* arg, struct tcp_pcb* pcb, err_t err);
 static err_t LwipRawTcpStream_RecvCallback(void* arg, struct tcp_pcb* tpcb, struct pbuf* p, err_t err);
@@ -492,9 +493,28 @@ static void LwipRawTcpStream_ClosePcb(struct SolidSyslogLwipRawTcpStream* self)
     LwipRawTcpStream_DrainAllQueuedPbufs(self);
     if (LwipRawTcpStream_IsOpen(self))
     {
-        (void) tcp_close(self->Pcb);
+        struct tcp_pcb* pcb = self->Pcb;
         self->Pcb = NULL;
+        LwipRawTcpStream_DetachPcb(pcb);
+        if (tcp_close(pcb) != ERR_OK)
+        {
+            /* Close could not be queued (ERR_MEM). Abort frees the pcb now -
+               leaving it would strand it, since nothing holds it any more. */
+            tcp_abort(pcb);
+        }
     }
+}
+
+/* lwIP keeps a closed pcb until its close completes, and while it lives it
+   calls whatever tcp_arg holds - which, on a stream that has since reconnected,
+   is the state of a different connection. Detaching before the close is what
+   makes that impossible: the pcb we are finished with holds no way back to us. */
+static void LwipRawTcpStream_DetachPcb(struct tcp_pcb* pcb)
+{
+    tcp_arg(pcb, NULL);
+    tcp_recv(pcb, NULL);
+    tcp_sent(pcb, NULL);
+    tcp_err(pcb, NULL);
 }
 
 static err_t LwipRawTcpStream_ConnectedCallback(void* arg, struct tcp_pcb* pcb, err_t err)
