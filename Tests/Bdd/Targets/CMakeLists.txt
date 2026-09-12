@@ -28,6 +28,7 @@ if(SOLIDSYSLOG_POSIX)
         BddTargetCommandLineTest.cpp
         BddTargetInteractiveTest.cpp
         BddTargetServiceThreadTest.cpp
+        BddTargetStderrErrorHandlerTest.cpp
         BddTargetSwitchConfigTest.cpp
     )
     list(APPEND BDD_TARGET_PRODUCTION_SOURCES

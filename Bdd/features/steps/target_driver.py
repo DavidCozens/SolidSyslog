@@ -174,12 +174,17 @@ def apply_extra_args(context, process, extra_args):
     Raises ValueError if a flag is not in the translation table; the BDD
     scenario surfaces the gap immediately rather than silently no-op'ing
     or hitting a confusing UART-side `set: invalid` reply.
+
+    Returns how many command lines were written. Each one draws a reply and a
+    fresh prompt from the target, and the caller owns the reader, so the caller
+    has to consume that many before any later step can read a reply of its own
+    - without it every reply after this is one command behind.
     """
     if not extra_args:
-        return
+        return 0
     target = getattr(context, "target", "linux")
     if target != "freertos":
-        return
+        return 0
 
     # Walk extra_args sequentially; bare flags from _FREERTOS_BARE_FLAG_VALUE
     # don't consume the next arg, key/value flags do. Collect into a list
@@ -222,6 +227,7 @@ def apply_extra_args(context, process, extra_args):
         name = _FREERTOS_SET_TRANSLATION[flag]
         process.stdin.write(f"set {name} {value}\n")
     process.stdin.flush()
+    return len(pairs)
 
 
 def stop_example_process(process, target, timeout=10):

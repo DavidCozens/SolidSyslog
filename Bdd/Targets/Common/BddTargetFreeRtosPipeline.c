@@ -456,6 +456,13 @@ static bool OnSet(const char* name, const char* value)
     }
     /* Anything left is either a TLS knob or nothing we own; the TLS module says
        which, so its table lives in one place rather than being mirrored here. */
+    if (strcmp(name, "errors-fatal") == 0)
+    {
+        /* Accepted so a matrix scenario says the same thing on every target.
+           This handler only prints - no report ends the process here - so there
+           is nothing for the knob to turn off. */
+        return (strcmp(value, "0") == 0) || (strcmp(value, "1") == 0);
+    }
     return BddTargetTlsConfig_SetByName(name, value);
 }
 

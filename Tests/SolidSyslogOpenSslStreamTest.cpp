@@ -868,6 +868,17 @@ TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerNameDidNotMatch)
     );
 }
 
+TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerAddressDidNotMatch)
+{
+    ArrangeCertificateVerificationFailure(X509_V_ERR_IP_ADDRESS_MISMATCH);
+    CHECK_FALSE(SolidSyslogStream_Open(stream, addr));
+    CHECK_OPEN_UNWOUND_WITH_ERROR(
+        transport,
+        SOLIDSYSLOG_CAT_TLS_STREAM_HANDSHAKE_FAILED,
+        SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED
+    );
+}
+
 TEST(SolidSyslogOpenSslStream, OpenReportsThatThePeerCertificateIsNotTrusted)
 {
     ArrangeCertificateVerificationFailure(X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY);
