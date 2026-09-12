@@ -60,12 +60,15 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
     struct SolidSyslogMbedTlsProfile
     {
         /** SNI + peer-identity check. A non-empty name is verified against the peer
-         *  cert (SAN/CN). NULL asks for neither, and what that means depends on the
-         *  Credentials: a usable pinned fingerprint names the peer instead, so nothing
-         *  is reported; without one the peer is only chain-authenticated and a WARNING
-         *  says so (MITM-class). "" is the no-name-check opt-out (closed network /
-         *  private CA): the peer must still satisfy whatever the credentials
-         *  installed, but the endpoint identity is not checked; no diagnostic. */
+         *  cert (SAN/CN); one that parses as an address literal is verified as an
+         *  address, so the cert must carry it as an iPAddress SAN and a DNS entry
+         *  spelling the same digits does not match. NULL asks for neither, and what
+         *  that means depends on the Credentials: a usable pinned fingerprint names the
+         *  peer instead, so nothing is reported; without one the peer is only
+         *  chain-authenticated and a WARNING says so (MITM-class). "" is the
+         *  no-name-check opt-out (closed network / private CA): the peer must still
+         *  satisfy whatever the credentials installed, but the endpoint identity is not
+         *  checked; no diagnostic. */
         const char* ServerName;
         /** Ciphersuite policy: a 0-terminated array of IANA identifiers, the
          *  MBEDTLS_TLS_* and MBEDTLS_TLS1_3_* macros of ssl_ciphersuites.h. One list

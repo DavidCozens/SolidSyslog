@@ -295,6 +295,22 @@ TEST(OpenSslStreamIntegration, HandshakeRejectedWhenServerCertHostnameDoesNotMat
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
 }
 
+/* An expected identity given as an address is verified as one, and a peer that
+   does not carry it is refused with the same portable detail as a name that does
+   not match - which is what the collector's own configuration decides, not the
+   integrator's choice of how to write the destination down. */
+TEST(OpenSslStreamIntegration, HandshakeRejectedWhenTheExpectedAddressDoesNotMatch)
+{
+    static const char* const otherSans[] = {"someone-else.example", nullptr};
+    struct TlsTestCertConfig certConfig = {};
+    certConfig.commonName = "someone-else.example";
+    certConfig.subjectAltDnsNames = otherSans;
+    buildScenario(certConfig, "127.0.0.1");
+
+    CHECK_FALSE(SolidSyslogStream_Open(tlsStream, addr));
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
+}
+
 TEST(OpenSslStreamIntegration, HandshakeRejectedWhenClientDoesNotTrustServerCert)
 {
     struct TlsTestCertConfig certConfig = {};

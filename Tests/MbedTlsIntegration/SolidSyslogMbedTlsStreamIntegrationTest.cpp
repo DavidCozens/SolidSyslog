@@ -323,6 +323,22 @@ TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenServerNameDoesNotMat
     CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
 }
 
+/* The same refusal as the name above, for an expected identity written as an
+ * address. The portable detail must not depend on which form the integrator
+ * used, and the other adapter reached this through a different verdict. */
+TEST(SolidSyslogMbedTlsStreamIntegration, HandshakeFailsWhenTheExpectedAddressDoesNotMatchCert)
+{
+    struct SolidSyslogStream* transport = StartServerWithCert(&serverCert);
+    struct SolidSyslogMbedTlsStreamConfig config = BuildBaseConfig(transport);
+    profileValues.ServerName = "127.0.0.1"; /* server cert has SAN syslog.example.com */
+    tlsStream = CreateTlsStream(&config);
+
+    bool opened = SolidSyslogStream_Open(tlsStream, addr);
+
+    CHECK_FALSE_TEXT(opened, "client-side handshake must fail when the expected address is not in the cert");
+    CHECK_REFUSAL_REPORTED(SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED);
+}
+
 /* No trust anchors and no pinned fingerprint: nothing authorises the peer, so
  * the connection stops before the handshake rather than reaching a collector
  * this stream cannot identify. */

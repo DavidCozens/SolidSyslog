@@ -90,6 +90,7 @@ static inline bool OpenSslStream_InitSslSession(struct SolidSyslogOpenSslStream*
 static inline bool OpenSslStream_Open(struct SolidSyslogStream* base, const struct SolidSyslogAddress* addr);
 static inline bool OpenSslStream_PerformHandshake(struct SolidSyslogOpenSslStream* self);
 static inline enum SolidSyslogTlsStreamErrors OpenSslStream_RefusalDetail(struct SolidSyslogOpenSslStream* self);
+static inline bool OpenSslStream_IsPeerNameMismatch(long verdict);
 static inline SolidSyslogSsize OpenSslStream_Read(struct SolidSyslogStream* base, void* buffer, size_t size);
 static inline void OpenSslStream_ReleaseBioMethod(struct SolidSyslogOpenSslStream* self);
 static inline void OpenSslStream_ReleaseHandshakeState(struct SolidSyslogOpenSslStream* self);
@@ -819,7 +820,7 @@ static inline enum SolidSyslogTlsStreamErrors OpenSslStream_RefusalDetail(struct
     {
         detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_FINGERPRINT_MISMATCHED;
     }
-    else if (verdict == X509_V_ERR_HOSTNAME_MISMATCH)
+    else if (OpenSslStream_IsPeerNameMismatch(verdict))
     {
         detail = SOLIDSYSLOG_TLS_STREAM_ERROR_PEER_NAME_MISMATCHED;
     }
@@ -841,6 +842,15 @@ static inline enum SolidSyslogTlsStreamErrors OpenSslStream_RefusalDetail(struct
          * transport fault rather than one the peer's certificate explains. */
     }
     return detail;
+}
+
+/* An expected identity that parses as an IP literal is checked as an address
+ * rather than a name - SSL_set1_host installs it that way - so the two verdicts
+ * are one fault in the portable vocabulary, and an integrator configuring a
+ * collector by address is told the same thing as one configuring it by name. */
+static inline bool OpenSslStream_IsPeerNameMismatch(long verdict)
+{
+    return (verdict == X509_V_ERR_HOSTNAME_MISMATCH) || (verdict == X509_V_ERR_IP_ADDRESS_MISMATCH);
 }
 
 static inline bool OpenSslStream_Send(struct SolidSyslogStream* base, const void* buffer, size_t size)
