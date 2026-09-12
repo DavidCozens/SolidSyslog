@@ -55,6 +55,9 @@ FREERTOS_DISK_IMAGE_PATH = "solidsyslog-disk.img"
 RECEIVED_UDP_LOG = "Bdd/output/received_udp.log"
 RECEIVED_TCP_LOG = "Bdd/output/received_tcp.log"
 RECEIVED_TLS_LOG = "Bdd/output/received_tls.log"
+# The second collector, with its own issuer and its own name - where a redirected
+# device lands, and the only way to tell it arrived there rather than at the first.
+RECEIVED_TLS_B_LOG = "Bdd/output/received_tls_b.log"
 RECEIVED_MTLS_LOG = "Bdd/output/received_mtls.log"
 
 

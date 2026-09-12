@@ -14,6 +14,7 @@ from behave import given, when, then
 from environment import (
     RECEIVED_MTLS_LOG,
     RECEIVED_TCP_LOG,
+    RECEIVED_TLS_B_LOG,
     RECEIVED_TLS_LOG,
     RECEIVED_UDP_LOG,
     STORE_FILE_PATH,
@@ -23,12 +24,14 @@ from environment import (
     otel_start_oracle,
 )
 from target_driver import apply_extra_args, spawn_example_process, stop_example_process
+from tls_collectors import fingerprint_of, listener
 from tls_reports import reported_details
 
 PER_TRANSPORT_LOG_SYSLOG_NG = {
     "udp": RECEIVED_UDP_LOG,
     "tcp": RECEIVED_TCP_LOG,
     "tls": RECEIVED_TLS_LOG,
+    "tls_b": RECEIVED_TLS_B_LOG,
     "mtls": RECEIVED_MTLS_LOG,
 }
 
@@ -40,6 +43,7 @@ PER_TRANSPORT_LOG_OTEL = {
     "udp":  "Bdd/output/received_udp.jsonl",
     "tcp":  "Bdd/output/received_tcp.jsonl",
     "tls":  "Bdd/output/received_tls.jsonl",
+    "tls_b": "Bdd/output/received_tls_b.jsonl",
     "mtls": "Bdd/output/received_mtls.jsonl",
 }
 
@@ -459,10 +463,15 @@ def apply_tls_settings(context, process):
     a connection nobody configured.
     """
     for name, value in getattr(context, "tls_settings", []):
-        reply = send_command(process, f"set {name} {value}")
-        assert "set: invalid" not in reply, (
-            f"BDD target rejected `set {name} {value}`"
-        )
+        apply_tls_setting(process, name, value)
+
+
+def apply_tls_setting(process, name, value):
+    """One `set NAME VALUE`, refusing to continue if the target will not take it."""
+    reply = send_command(process, f"set {name} {value}")
+    assert "set: invalid" not in reply, (
+        f"BDD target rejected `set {name} {value}`"
+    )
 
 
 def run_example(context, extra_args=None, expected_messages=1, command="send"):
@@ -1470,6 +1479,49 @@ def step_check_last_sequence_id(context, value):
 @given("the BDD target is running with default transport {transport:w}")
 def step_bdd_target_running_with_default_transport(context, transport):
     start_bdd_target_process(context, build_buffered_extra_args(context, transport))
+
+
+@when('the client is given trust anchors "{anchors}"')
+def step_client_given_trust_anchors(context, anchors):
+    """Rotate the trust anchors on a target that is already running.
+
+    The material a connection is made with is fetched at each Open, and what
+    makes new material take effect is the version moving - which the target's
+    own `set` handler does. That is what a rotation cell proves; with the
+    version held still the next connection reuses what it had.
+    """
+    apply_tls_setting(context.interactive_process, "tls-ca", anchors)
+
+
+@when('the client is given the pin of "{identity}"')
+def step_client_given_pin(context, identity):
+    """Replace the pinned fingerprints on a running target.
+
+    `none` empties the set before the new pin goes in, so this is a rotation
+    rather than an addition - a stale pin left alongside would keep authorising
+    the peer it names.
+    """
+    apply_tls_setting(context.interactive_process, "tls-pin", "none")
+    apply_tls_setting(context.interactive_process, "tls-pin", fingerprint_of(identity))
+
+
+@when('the client expects the peer name "{name}"')
+def step_client_expects_peer_name(context, name):
+    apply_tls_setting(context.interactive_process, "tls-name", name)
+
+
+@when('the client is redirected to "{identity}"')
+def step_client_redirected(context, identity):
+    """Move the destination only. What the device expects of the peer there is
+    rotated separately, because whether the identity travels with the
+    destination is the thing a redirect cell has to prove."""
+    port, _ = listener(identity)
+    apply_tls_setting(context.interactive_process, "tls-port", str(port))
+
+
+@when('the client is given the client credential "{credential}"')
+def step_client_given_client_credential(context, credential):
+    apply_tls_setting(context.interactive_process, "tls-client", credential)
 
 
 @when("the client switches to transport {transport:w}")
