@@ -9,6 +9,14 @@ Feature: TLS equivalence matrix
   The library that spoke is never asserted. It is the one thing that is
   supposed to differ.
 
+  Scenario: A peer signed by the trusted anchor and named as expected is authorised
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the syslog oracle receives a message with priority "134"
+    And the target reports no TLS fault
+
   Scenario: A pinned certificate is authorised with no chain at all
     Given the syslog oracle is running
     And the collector presents "self-signed"
@@ -42,6 +50,36 @@ Feature: TLS equivalence matrix
     When the BDD target sends a syslog message with transport tls
     Then the syslog oracle receives 1 message over tls
     And the target reports no TLS fault
+
+  Scenario: A device that authenticates itself as well delivers over mutual TLS
+    Given the syslog oracle is running
+    When the BDD target sends a syslog message with transport mtls
+    Then the syslog oracle receives 1 message over mtls
+    And the syslog oracle receives a message with priority "134"
+    And the target reports no TLS fault
+
+  Scenario: A device that declares no peer name delivers, and says the peer is unnamed
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    And the BDD target declares no expected peer name
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports TLS detail "SERVER_NAME_NOT_SET" at severity WARNING
+
+  Scenario: A client credential the library cannot complete does not stop delivery
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    And the BDD target holds half a client credential
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+
+  Scenario: A pin RFC 5425 makes mandatory but no longer trusts is honoured, and objected to
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    And the sha-1 fingerprint of "anchor-signed" is pinned
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports TLS detail "FINGERPRINT_SHA1" at severity WARNING
 
   Scenario: A peer that does not chain to the trusted anchor is refused
     Given the syslog oracle is running
@@ -78,6 +116,36 @@ Feature: TLS equivalence matrix
     And the BDD target tolerates a refused handshake
     When the BDD target attempts to send a syslog message over tls
     Then the target reports TLS detail "NO_PEER_AUTHORISATION"
+    And the syslog oracle receives no message over tls
+    And the BDD target is still running
+
+  Scenario: A cipher policy naming a suite the collector offers connects at the version it offers
+    Given the syslog oracle is running
+    And the collector presents "tls-1-2"
+    And the BDD target asks for a suite the collector offers
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports no TLS fault
+
+  @tls13
+  Scenario: A device connects at TLS 1.3 to a collector that refuses anything older
+    # Both oracles refuse everything below 1.3 on this listener - syslog-ng
+    # through ssl-options, otelcol through min_version - so delivery is what
+    # proves the version negotiated. The library has no 1.3 knob; it happens
+    # because each backend prefers the highest mutually supported version.
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    When the BDD target sends a syslog message with transport tls
+    Then the syslog oracle receives 1 message over tls
+    And the target reports no TLS fault
+
+  Scenario: A cipher policy the collector cannot satisfy is refused rather than quietly widened
+    Given the syslog oracle is running
+    And the collector presents "anchor-signed"
+    And the BDD target asks for a suite the collector does not offer
+    And the BDD target tolerates a refused handshake
+    When the BDD target attempts to send a syslog message over tls
+    Then the target reports TLS detail "HANDSHAKE_REJECTED"
     And the syslog oracle receives no message over tls
     And the BDD target is still running
 

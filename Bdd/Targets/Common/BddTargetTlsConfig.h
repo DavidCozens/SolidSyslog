@@ -34,6 +34,13 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
        are distinct to the library, so the harness has to be able to say all
        three. */
     const char* BddTargetTlsConfig_GetServerName(void);
+    /* Which ciphersuite policy a connection is made with, as an intent token
+       rather than a suite name: "default" leaves the library's own, "offered"
+       names a suite the collector offers and "unoffered" one it does not. The
+       suites themselves are irreducibly backend-typed - a string list on one
+       pack, IANA identifiers on the other - so each pack maps the token, and
+       one feature file drives every target. */
+    const char* BddTargetTlsConfig_GetCipherPolicyName(void);
     const char* const * BddTargetTlsConfig_GetPeerFingerprints(void);
     size_t BddTargetTlsConfig_GetPeerFingerprintCount(void);
     void BddTargetTlsConfig_GetEndpoint(struct SolidSyslogEndpoint * endpoint, void* context);
@@ -70,6 +77,7 @@ SOLIDSYSLOG_EXTERN_C_BEGIN
          tls-ca     ca | ca-b | none          - none asks for no trust anchors
          tls-client client | cert-only | none - what to present for mutual TLS
          tls-name   <name> | none | ""        - none asks for no name at all
+         tls-cipher offered | unoffered       - a suite the collector offers, or one it does not
          tls-pin    <fingerprint> | none      - none clears the list, else appends
 
        Every accepted set moves the version, so the next record reconnects and
