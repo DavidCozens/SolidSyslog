@@ -296,6 +296,25 @@ TEST(SolidSyslogLwipRawTcpStream, CloseBeforeOpenIsNoOp)
     CALLED_FAKE(LwipTcpFake_TcpAbort, NEVER);
 }
 
+TEST(SolidSyslogLwipRawTcpStreamConnected, CloseDetachesTheStreamFromThePcbItCloses)
+{
+    SolidSyslogStream_Close(stream);
+
+    POINTERS_EQUAL(nullptr, LwipTcpFake_LastCallbackArg());
+    CHECK_TRUE(LwipTcpFake_LastErrFn() == nullptr);
+    CHECK_TRUE(LwipTcpFake_LastRecvFn() == nullptr);
+    CHECK_TRUE(LwipTcpFake_LastSentFn() == nullptr);
+}
+
+TEST(SolidSyslogLwipRawTcpStreamConnected, CloseAbortsThePcbWhenTheCloseCannotBeQueued)
+{
+    LwipTcpFake_SetTcpCloseError(ERR_MEM);
+
+    SolidSyslogStream_Close(stream);
+
+    CALLED_FAKE(LwipTcpFake_TcpAbort, ONCE);
+}
+
 TEST(SolidSyslogLwipRawTcpStream, SendBeforeOpenReturnsFalse)
 {
     CHECK_FALSE(sendBytes());
